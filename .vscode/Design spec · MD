@@ -1,0 +1,193 @@
+# EcoScan AI - Design Spec (source of truth)
+
+## PRODUCT CONTEXT
+EcoScan AI photographs a pile of mixed waste and turns what is VISIBLE on the surface into numbers: which items are there, what material each is, a composition breakdown, an estimated recoverable value, and which items are hazardous. Users are municipal waste contractors, scrap yards, recyclers, and sorting-facility operators. Humans can see waste but cannot measure it; the product produces the measurement, plus a machine-readable output that sorting robots could consume in future.
+
+Honesty rules shown throughout the UI: it analyses the visible top layer only, all weights and values are estimates, and demo data is labelled as demo.
+
+## GLOBAL DESIGN SYSTEM
+
+**Theme:** modern dark-slate industrial dashboard. Page background slate-950. Panels slate-900 at 90% opacity with a 1px slate-800 border and a faint inner top highlight. Radius: 12px for panels, 8px for cards, full for chips. Subtle noise or fine grid texture at 3-4% opacity on the page background.
+
+**Category accents** (use consistently everywhere: boxes, chips, bars, icons, glows):
+- Recyclable: emerald #10B981
+- Organic: amber #F59E0B
+- Hazardous: crimson #EF4444
+- Non-Recyclable: slate #64748B
+
+Each category has a tinted background (accent at 10-12% opacity), a 1px accent border at 40% opacity, and a soft outer glow (accent at 25% opacity, 12-16px blur) when active or hovered. Hazardous items get an extra slow pulsing glow so they stand out.
+
+**Bin mapping** (shown as a small coloured swatch separate from the category accent, so there is no colour confusion):
+- Recyclable -> Blue dry-waste bin
+- Organic -> Green wet-waste bin
+- Hazardous -> Red hazardous container (never in a normal bin)
+- Non-Recyclable -> Black reject bin
+
+**Typography:** Inter for UI text, JetBrains Mono for all telemetry and data (IDs, coordinates, confidence, latency, JSON). Section labels are small uppercase, wide letter-spacing, slate-400. Numbers in tables use tabular figures.
+
+**Metadata chips:** monospace, 11-12px, slate-800 background, slate-300 text, 1px slate-700 border, pill shaped. Examples: "CONF 96%", "42 ms", "REC-0001", "x:0.18 y:0.32".
+
+**Icons (lucide-react):** Camera, ScanLine, Recycle, Leaf, TriangleAlert, Trash2, Bot, LayoutGrid, Table2, Download, FileJson, Activity, Gauge, MapPin, Layers, ChevronRight, X, Send, Wifi, Cpu, Info, Check.
+
+**Motion:** 150-200ms ease-out transitions. Bounding boxes draw in with a quick stroke animation. A scanning line sweeps over the image while analysing. Cards lift 2px and glow on hover. Drawer slides in with a 250ms ease. Respect prefers-reduced-motion by disabling pulses and sweeps.
+
+**Accessibility:** WCAG AA contrast, visible focus rings (2px emerald offset ring), every interactive element keyboard reachable, category is always conveyed by icon AND label (never colour alone), aria-labels on icon buttons.
+
+**Persistent honesty banner** (slim, slate-800 with an Info icon): "Visible surface only - items beneath the top layer are not counted. Weights and values are estimates. Demo data."
+
+## APP SHELL (on every page)
+
+**Header**, 56px, sticky, slate-900 with bottom border:
+- Left: logo mark (a scan-frame icon with a leaf inside, emerald) and wordmark "EcoScan AI" with small mono subtitle "waste pile analysis".
+- Centre: tab navigation with four tabs - Scan, Audit, Sites, Robot API. Active tab has an emerald underline and a faint emerald text glow. On mobile this becomes a bottom tab bar with icons and labels.
+- Right: a camera status pill ("CAM LIVE" with a pulsing green dot, or "CAM OFF" in slate), a latency chip (e.g. "42 ms" with a Gauge icon, turning amber above 150 ms and red above 400 ms), an active-items badge ("12 items" in a rounded emerald-tinted badge), and an EcoBot toggle button (Bot icon) that opens the drawer.
+
+**Footer status bar**, 32px, mono, slate-500: model name "ecoscan-seg-v0 (demo)", scan id, timestamp, and the visible-surface notice.
+
+## PAGE 1 - SCAN (default, the main workspace)
+
+Desktop layout: two columns, 60/40. Left column is the viewfinder; right column is the results panel. Below 1024px it stacks vertically.
+
+### Left column - Viewfinder and scene canvas
+- A 16:10 rounded canvas with a thin slate-700 frame and four glowing emerald corner brackets (like a camera focus frame).
+- Top-left overlay chips: "LIVE" or "CAPTURED", resolution "1920x1200", and the current mode.
+- Top-right overlay chips: FPS and latency.
+- Bottom-left of the canvas: a legend of the four category colours, clickable to filter boxes.
+- **Bounding boxes:** rectangles in the item's category colour with a 2px stroke and slightly rounded corners, a faint tinted fill (10%), and a numbered tag at the top-left corner (a small filled rectangle containing the item number in mono bold, e.g. "01"). A short label strip beneath the tag shows the item name and confidence. Hazardous boxes use a dashed outer ring and pulse.
+- The active (hovered or selected) box gets a bright glow and a thicker stroke, while all other boxes dim to 40% opacity. Hovering a box highlights the matching card or table row on the right, and the reverse.
+- **Control bar below the canvas:** a large primary "Capture and Analyse" button (emerald, Camera icon), "Upload photo" (secondary), "Load demo pile" (secondary, loads the 12-item scene), "Rescan" (ghost). A toggle labelled "Show masks" (shows an irregular filled polygon instead of a rectangle for each item) and another "Show grasp points" (small crosshair at each item centre).
+- Also in the control bar: a confidence threshold slider (0-100%, default 60). Items below the threshold render with dashed grey boxes and a "Needs confirmation" tag.
+
+### Scan states to design
+1. **Idle:** dark canvas with a centred dashed drop-zone, a Camera icon, "Point the camera at a pile, or upload a photo", and a faint animated grid.
+2. **Camera permission denied:** amber alert card with steps and an "Upload a photo instead" button.
+3. **Analysing:** scanning line sweeps top to bottom, skeleton cards on the right, a progress strip with stages "Detecting items - Classifying materials - Estimating values", and a latency counter.
+4. **Results:** boxes draw in one by one with a 60ms stagger, cards populate.
+5. **Error:** red-tinted card, "Analysis failed", with Retry.
+6. **Low-confidence:** affected items show a "Confirm material" inline dropdown so the user can correct the label; a corrected item shows a small Check icon and "User confirmed".
+
+### Right column - Results panel
+- Top: a segmented view switcher "Cards | Table" (LayoutGrid and Table2 icons), plus a search field and category filter chips (All, Recyclable, Organic, Hazardous, Non-Recyclable, each with a live count).
+- A summary strip of four small stat tiles in category colours showing counts and a fifth tile "Est. value".
+
+**a) Cards view:** a scrollable column (two columns on wide screens) of item cards. Each card has: a number badge in the category colour, item name (semibold), a category pill with its icon (Recycle, Leaf, TriangleAlert, Trash2), a material chip (e.g. "PET"), a confidence mini-bar with mono percentage, a "Target bin" row with a colour swatch and directive text, an "Action required" row with an icon, and a collapsible "Why?" section with one sentence of reasoning. Hazardous cards have a red top border strip and a bold warning line. Clicking a card pins it; the matching box on the canvas stays highlighted.
+
+**b) Table view:** enterprise data grid with sticky header, zebra rows in slate-900/slate-950, hover row highlight in the category tint, and sortable columns: "#", "Item name", "Material category" (pill), "Target bin" (swatch plus directive), "Bounding coordinates" (mono, normalised x, y, w, h), "Confidence", "Est. weight", "Action required". Include a row-selection checkbox, a "Select all", and an "Export CSV" button. Hazardous rows have a red left border.
+
+- At the bottom of the panel: a prominent "Generate audit report" button (leads to Page 2).
+
+## PAGE 2 - AUDIT REPORT
+
+Purpose: the headline product output; a one-page summary a contractor could hand over. Single scrollable page, max width 1200px, with a header card then a responsive grid.
+
+- **Header card:** scan thumbnail (small, with box overlays), site name ("Demo Yard A"), scan id, timestamp, and buttons "Export PDF", "Export CSV", "Copy summary".
+- **KPI tiles:** "Items detected", "Recoverable share (by weight)", "Est. recoverable value (range, estimate)", "Hazardous items" (red tile with glow).
+- **Composition card (largest):** a donut chart plus a stacked horizontal bar, with a toggle "By count | By weight". Example expected values from the mock data (compute in code; do not hard-code):
+  - By count: Recyclable 6 (50%), Organic 2 (16.7%), Hazardous 2 (16.7%), Non-Recyclable 2 (16.7%).
+  - By weight (est.): roughly 984 g total, mostly Recyclable.
+  - Underneath, a material breakdown list with small bars: PET, HDPE, Paper/Cardboard, Aluminium, Glass, Food waste, Multilayer plastic, Foam, Batteries.
+- **Hazard panel (red-tinted, full width):** lists hazardous items with handling directives ("Do not bin. Keep dry and separate. Take to a battery or e-waste drop-off.") and a "Worker safety" note.
+- **Contamination and quality panel:** a score gauge, e.g. "Recyclable stream contamination risk: Medium", with flagged findings ("Food waste touching cardboard may reduce its value", "Multilayer packets mixed in with paper").
+- **Ranked pick list "Recover first":** hazardous items first for safety, then the rest by value. Each row shows rank, thumbnail crop, item, material, value range, and a small "Where" button that jumps to the Scan page and highlights its box.
+- **Footer disclaimer:** the honesty banner text plus "Estimates only - not a certified weighbridge or audit record."
+
+## PAGE 3 - SITES AND TRENDS
+
+Purpose: show change over time per site.
+- Left sidebar list of sites (Demo Yard A, Demo Yard B, Demo Landfill Cell 3), each with a mini sparkline, last scan time, and a status dot.
+- Main area for the selected site: a date-range selector; a line chart of recoverable share over time; a stacked area chart of composition by category; a small "contamination over time" chart; and a table of past scans (date, items, recoverable %, hazardous count, link to its report).
+- A "Compare sites" mode showing two sites side by side.
+- A dismissible callout: "Trends use demo data."
+- Empty state for a new site: a dashed card saying "No scans yet - run your first scan" with a button to Page 1.
+
+## PAGE 4 - ROBOT API (machine-readable output)
+
+Purpose: show the output a sorting robot or any other system could consume.
+- Two-pane layout. Left: a styled JSON viewer (mono, syntax coloured, collapsible nodes, line numbers) with a "Copy" button, a "Download .json" button, and a segmented control "Single item | Full scan". Right: a visual overlay of the scan image showing the selected item's mask polygon, bounding box, and a crosshair at its grasp point, linked to the selected JSON node.
+- The JSON for each item includes: id, label, material, category, confidence, normalised bounding box, a mask polygon, grasp point (x, y), estimated weight in grams, estimated value range in INR, a hazard flag with handling note, target bin, and a recommended action. The scan envelope includes scan id, site id, timestamp, image width and height, and model version.
+- A "Schema" tab listing each field with its type and a one-line description in a clean table.
+- A clearly visible note: "Output is robot-ready in format. It has not been tested on physical robot hardware."
+
+## ECOBOT ASSISTANT DRAWER (available from every page)
+- Slides in from the right (380px wide, full height) on desktop; becomes a bottom sheet at 70% height on mobile with a drag handle.
+- Header: Bot icon, "EcoBot", a context chip showing "Context: 12 items from current scan", and a close button.
+- Body: chat thread. User messages right-aligned in emerald-tinted bubbles; bot messages left-aligned in slate-800 bubbles with small mono source chips such as "From item #3". Bot replies can embed a mini item card. Show a typing indicator (three pulsing dots).
+- Mock conversation: user asks "Why is item #6 non-recyclable?" and the bot answers that multilayer foil-lined chip packets mix plastic and aluminium layers that standard facilities cannot separate. Another: "Where is the nearest hazardous depot?" and the bot answers that it needs the user's location and offers a "Share location" button, plus a note that it will not guess an address (never invent a real address).
+- Quick prompt chips above the input: "Why is item #2 organic?", "What do I do with the battery?", "Which items are worth the most?", "Summarise this scan". Input bar: text field, Send button, and a disabled mic icon labelled "coming soon".
+
+## MOCK DATA (consistent everywhere)
+
+The core three items are always present in the default scene: #1 Plastic bottle, #2 Apple core, #3 AA battery. "Load demo pile" adds #4 to #12. Weights are in grams, values in INR; all are illustrative demo values.
+
+| # | Item | Category | Material | Conf | Weight | Value (INR) | Bin | Action |
+|---|------|----------|----------|------|--------|-------------|-----|--------|
+| 1 | Plastic bottle | Recyclable | PET | 96% | 25 g | 1-1.5 | Blue dry bin | Rinse and remove cap |
+| 2 | Apple core | Organic | Food waste | 94% | 60 g | none | Green wet bin | Compost or wet-waste collection |
+| 3 | AA battery | Hazardous | Alkaline battery | 91% | 24 g | none | Red hazardous container | Do not bin. Take to a battery drop-off |
+| 4 | Cardboard piece | Recyclable | Cardboard | 93% | 120 g | 1-2 | Blue dry bin | Flatten and keep dry |
+| 5 | Aluminium can | Recyclable | Aluminium | 95% | 15 g | 4-6 | Blue dry bin | Rinse and crush |
+| 6 | Chip packet | Non-Recyclable | Multilayer plastic | 88% | 5 g | none | Black reject bin | Dispose in reject waste |
+| 7 | Glass bottle | Recyclable | Glass | 90% | 350 g | 2-3 | Blue dry bin | Remove cap, do not break |
+| 8 | Banana peel | Organic | Food waste | 92% | 120 g | none | Green wet bin | Compost |
+| 9 | Foam tray | Non-Recyclable | Expanded polystyrene | 86% | 10 g | none | Black reject bin | Dispose in reject waste |
+| 10 | Newspaper | Recyclable | Paper | 89% | 150 g | 1.5-2.5 | Blue dry bin | Keep dry |
+| 11 | Detergent bottle | Recyclable | HDPE | 87% | 60 g | 2-3 | Blue dry bin | Rinse and remove cap |
+| 12 | Swollen phone battery | Hazardous | Lithium-ion | 90% | 45 g | none | Red hazardous container | Do not crush or bin. Isolate and take to e-waste drop-off |
+
+Give each item plausible normalised bounding boxes spread across a placeholder pile image. Generate the scene with CSS/SVG shapes and soft gradients: no external images or copyrighted assets.
+
+## RESPONSIVE BEHAVIOUR
+- **Desktop (1280px+):** two-column Scan page, drawer overlays the right edge.
+- **Tablet (768-1279px):** stacked columns, results panel below the canvas, tabs in the header.
+- **Mobile (below 768px):** single column; viewfinder first at full width; a sticky bottom action bar with Capture and Upload; the results panel becomes a swipeable bottom sheet with Cards and Table tabs (table scrolls horizontally with the first two columns pinned); navigation moves to a bottom tab bar; EcoBot opens as a bottom sheet; charts stack vertically.
+
+## ASCII WIREFRAME - DESKTOP (Scan page)
+
+```
++---------------------------------------------------------------------------------+
+| [logo] EcoScan AI    Scan | Audit | Sites | Robot API    CAM LIVE  42ms  12 items |
++-----------------------------------------------+---------------------------------+
+|  +-------------------------------------+      | [Cards | Table]  search  filters |
+|  | LIVE  1920x1200            42ms 30fps|      | [R 6][O 2][H 2][N 2][Rs 12-18]  |
+|  |   [01]---+     [04]---+             |      | +-----------+ +-----------+     |
+|  |   | PET  |     |board |  [03]!      |      | | #1 Bottle | | #2 Apple  |     |
+|  |   +------+     +------+  battery    |      | | PET 96%   | | core 94%  |     |
+|  |      [02]--+        [05]--+          |      | | Blue bin  | | Green bin |     |
+|  | legend: R O H N                      |      | +-----------+ +-----------+     |
+|  +-------------------------------------+      | | #3 AA battery  (red, pulse)|   |
+|  [Capture and Analyse] [Upload] [Demo pile]   | [Generate audit report]         |
+|  Masks [ ]  Grasp points [ ]  Threshold ---o  |                                 |
++-----------------------------------------------+---------------------------------+
+| Visible surface only - estimates - demo data | ecoscan-seg-v0 | REC-0001       |
++---------------------------------------------------------------------------------+
+```
+
+## ASCII WIREFRAME - MOBILE (Scan page)
+
+```
++---------------------------+
+| EcoScan AI   CAM LIVE 42ms|
++---------------------------+
+| [ viewfinder with boxes ] |
+| [01] [02] [03!]           |
++---------------------------+
+| [Capture] [Upload]        |
++---------------------------+
+| ====== drag handle =====  |
+| Cards | Table             |
+| #1 Plastic bottle  PET    |
+| #2 Apple core   Organic   |
+| #3 AA battery  HAZARD     |
++---------------------------+
+| Scan Audit Sites API  Bot |
++---------------------------+
+```
+
+## COMPONENT LIST
+Header, FooterBar, HonestyBanner, Viewfinder, BoundingBox, ControlBar, ResultsPanel, ItemCard, ItemTable, SummaryStrip, AuditPage, CompositionChart, HazardPanel, PickList, SitesPage, TrendCharts, RobotApiPage, JsonViewer, EcoBotDrawer, ChatBubble.
+
+## BUILD NOTES
+- The build is phased. Implement only the phase you are asked to.
+- Charts may use Recharts; no other heavy dependencies.
+- Everything must work offline with mock data.
+- Do not use real brand logos, copyrighted imagery, or fabricated real-world addresses.
