@@ -1,6 +1,6 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { Leaf, Gauge, Bot } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { Leaf, Gauge, Bot, ArrowUpRight } from 'lucide-react';
 import { APP_INFO } from '../lib/constants';
 
 interface HeaderProps {
@@ -25,11 +25,12 @@ export const Header: React.FC<HeaderProps> = ({
     return 'text-slate-300 border-slate-700 bg-slate-800';
   };
 
+  const isHome = useLocation().pathname === '/';
   const navItems = [
+    { to: '/', label: 'Home' },
     { to: '/scan', label: 'Workspace' },
     { to: '/audit', label: 'Audit report' },
     { to: '/sites', label: 'Site insights' },
-    { to: '/robot-api', label: 'Robot API' },
   ];
 
   return (
@@ -37,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Left: Brand Identity */}
       <div className="flex items-center gap-3">
         <NavLink
-          to="/scan"
+          to="/"
           className="flex items-center gap-2.5 group focus-visible:rounded-lg"
           aria-label="EcoScan AI Home"
         >
@@ -80,6 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
           <NavLink
             key={item.to}
             to={item.to}
+            end={item.to === '/'}
             className={({ isActive }) =>
               `h-full flex items-center px-3.5 text-xs font-medium border-b-2 transition-all ${
                 isActive
@@ -94,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
       </nav>
 
       {/* Right: Telemetry Chips & Assistant Action */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
+      {isHome ? <NavLink to="/scan" className="eco-button primary">Open scanner <ArrowUpRight size={15} aria-hidden="true" /></NavLink> : <div className="flex items-center gap-2 sm:gap-2.5">
         {/* Camera Status Pill */}
         <div
           role="status"
@@ -149,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
           <Bot className="w-4 h-4 text-emerald-400" aria-hidden="true" />
           <span className="hidden sm:inline">EcoBot</span>
         </button>
-      </div>
+      </div>}
     </header>
   );
 };
