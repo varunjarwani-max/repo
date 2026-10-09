@@ -120,8 +120,10 @@ test('parser validates ranges, categories, empty scenes, and report format', () 
 
 test('classification uses the real provider adapter with private system instructions', async () => {
   const previousKey = process.env.GEMINI_API_KEY;
+  const previousBackup = process.env.GEMINI_API_KEY_BACKUP;
   const previousFetch = globalThis.fetch;
   try {
+    delete process.env.GEMINI_API_KEY_BACKUP;
     delete process.env.GEMINI_API_KEY;
     await assert.rejects(classifyImage({ data: jpeg, mimeType: 'image/jpeg' }), /not configured/);
     process.env.GEMINI_API_KEY = 'test-only';
@@ -133,6 +135,8 @@ test('classification uses the real provider adapter with private system instruct
     };
     assert.equal((await classifyImage({ data: jpeg, mimeType: 'image/jpeg' })).detectedItems.length, 2);
   } finally {
+    if (previousBackup === undefined) delete process.env.GEMINI_API_KEY_BACKUP;
+    else process.env.GEMINI_API_KEY_BACKUP = previousBackup;
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = previousKey;
   }

@@ -12,8 +12,10 @@ async function invoke({ method = 'POST', headers = {}, body = {} } = {}) {
 
 await test('Gemini analysis endpoint validates inputs and never fabricates fallback items', async t => {
   const previousKey = process.env.GEMINI_API_KEY;
+  const previousBackup = process.env.GEMINI_API_KEY_BACKUP;
   const previousFetch = globalThis.fetch;
   try {
+    delete process.env.GEMINI_API_KEY_BACKUP;
     delete process.env.GEMINI_API_KEY;
     await t.test('rejects unsupported methods', async () => {
       const result = await invoke({ method: 'GET' });
@@ -67,6 +69,8 @@ await test('Gemini analysis endpoint validates inputs and never fabricates fallb
       assert.equal(result.body.items, undefined);
     });
   } finally {
+    if (previousBackup === undefined) delete process.env.GEMINI_API_KEY_BACKUP;
+    else process.env.GEMINI_API_KEY_BACKUP = previousBackup;
     globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
     else process.env.GEMINI_API_KEY = previousKey;

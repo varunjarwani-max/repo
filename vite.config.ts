@@ -5,7 +5,7 @@ import developerApi from './backend/developer-api.mjs';
 
 export default defineConfig(({ mode }) => {
   const environment = loadEnv(mode, process.cwd(), '');
-  for (const name of ['GEMINI_API_KEY', 'GEMINI_MODEL', 'ECO_ADMIN_SECRET']) {
+  for (const name of ['GEMINI_API_KEY', 'GEMINI_API_KEY_BACKUP', 'GEMINI_MODEL', 'ECO_ADMIN_SECRET']) {
     if (environment[name]) process.env[name] = environment[name];
   }
   return {

@@ -1,6 +1,7 @@
 import { generateText, APICallError } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { ApiError } from './key-store.mjs';
+import { configuredGeminiKeys, withGeminiKey } from './gemini-key-failover.mjs';
 
 const routing = {
   Recyclable: { bin: 'Blue recycling bin', directive: 'Empty, rinse, and keep dry.' },
@@ -52,15 +53,14 @@ export function validateImage(body, file) {
 }
 
 export async function classifyImage(image) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new ApiError(503, 'Vision service is not configured. Ask the operator to set the server-side GEMINI_API_KEY.');
-  const google = createGoogleGenerativeAI({ apiKey });
+  if (!configuredGeminiKeys().length) throw new ApiError(503, 'Vision service is not configured. Ask the operator to set the server-side GEMINI_API_KEY.');
+  const abortSignal = AbortSignal.timeout(45000);
   try {
-    const { text } = await generateText({
-      model: google(process.env.GEMINI_MODEL || 'gemini-3.8-flash'), system,
+    const { text } = await withGeminiKey(apiKey => generateText({
+      model: createGoogleGenerativeAI({ apiKey })(process.env.GEMINI_MODEL || 'gemini-3.8-flash'), system,
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Classify the visible waste in this photograph.' }, { type: 'file', data: image.data, mediaType: image.mimeType }] }],
-      temperature: 0.1, maxOutputTokens: 4096, maxRetries: 0, abortSignal: AbortSignal.timeout(45000),
-    });
+      temperature: 0.1, maxOutputTokens: 4096, maxRetries: 0, abortSignal,
+    }));
     return parseWasteResponse(text);
   } catch (error) {
     if (error instanceof ApiError) throw error;
