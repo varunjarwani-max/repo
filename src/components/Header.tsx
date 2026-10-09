@@ -26,14 +26,14 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const navItems = [
-    { to: '/scan', label: 'Scan' },
-    { to: '/audit', label: 'Audit' },
-    { to: '/sites', label: 'Sites' },
+    { to: '/scan', label: 'Workspace' },
+    { to: '/audit', label: 'Audit report' },
+    { to: '/sites', label: 'Site insights' },
     { to: '/robot-api', label: 'Robot API' },
   ];
 
   return (
-    <header className="sticky top-0 z-40 h-14 w-full bg-slate-900/95 backdrop-blur border-b border-slate-800 px-3 sm:px-6 flex items-center justify-between shadow-panel-highlight select-none">
+    <header className="eco-header sticky top-0 z-40 w-full backdrop-blur border-b flex items-center justify-between select-none">
       {/* Left: Brand Identity */}
       <div className="flex items-center gap-3">
         <NavLink
@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           />
           <span className="font-medium tracking-wider">
-            {cameraLive ? 'CAM LIVE' : 'CAM OFF'}
+            {cameraLive ? 'CAM LIVE' : 'DEMO MODE'}
           </span>
         </div>
 

@@ -21,10 +21,10 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="eco-app min-h-screen text-slate-100 flex flex-col font-sans">
       {/* Sticky Header */}
       <Header
-        cameraLive={true}
+        cameraLive={false}
         latencyMs={liveLatencyMs}
         itemCount={items.length}
         isEcoBotOpen={isEcoBotOpen}

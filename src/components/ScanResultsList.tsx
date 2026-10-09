@@ -106,7 +106,8 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-surface border border-border rounded-panel overflow-hidden select-none">
+    <div className="scan-results w-full h-full flex flex-col bg-surface border border-border rounded-panel overflow-hidden select-none">
+      <div className="results-heading"><h3>Material intelligence <span>{items.length} items</span></h3><span>Sample results · Demo data</span></div>
       {/* 1. Slim Summary Line */}
       <div className="px-4 py-2.5 bg-surface-2 border-b border-border flex items-center justify-between text-xs-12 font-mono">
         <span className="text-text">
@@ -130,7 +131,8 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search items, materials, #..."
+              aria-label="Search detected items"
+              placeholder="Search materials or items…"
               className="w-full pl-8 pr-3 py-1.5 rounded-card bg-surface-2 border border-border text-xs-12 text-text placeholder-muted focus:outline-none focus:border-accent transition-colors"
             />
           </div>
@@ -179,10 +181,7 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
                 }`}
               >
                 {/* 8px Category Dot */}
-                <span
-                  style={{ backgroundColor: dotColor }}
-                  className="w-2 h-2 rounded-full shrink-0"
-                />
+                <meta.icon size={12} style={{ color: dotColor }} aria-hidden="true" />
                 <span>{meta.label}</span>
                 <span className="font-mono text-[10px] opacity-70">({counts[cat]})</span>
               </button>
@@ -213,6 +212,17 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
                 onMouseEnter={() => onItemHover(item.id)}
                 onMouseLeave={() => onItemHover(null)}
                 onClick={() => handleRowClick(item.id)}
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                aria-label={`${item.label}, ${meta.label}, ${Math.round(item.confidence * 100)} percent confidence`}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleRowClick(item.id);
+                  }
+                }}
                 className={`rounded-card border transition-all cursor-pointer ${
                   isActive
                     ? 'bg-surface-2 border-accent/40 shadow-sm'
@@ -250,10 +260,7 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
                     <div
                       className={`hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs-12 ${meta.badgeClass}`}
                     >
-                      <span
-                        style={{ backgroundColor: dotColor }}
-                        className="w-2 h-2 rounded-full shrink-0"
-                      />
+                      <meta.icon size={12} style={{ color: dotColor }} aria-hidden="true" />
                       <span>{meta.label}</span>
                     </div>
 
@@ -324,7 +331,8 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
                             <div className="flex items-center gap-1.5">
                               <span className="text-muted text-[11px]">Confirm material:</span>
                               <select
-                                defaultValue={item.category}
+                                aria-label={`Confirm category for ${item.label}`}
+                                value={item.category}
                                 onChange={(e) => {
                                   if (onConfirmMaterial) {
                                     onConfirmMaterial(item.id, e.target.value as Category);

@@ -6,7 +6,7 @@ export const HonestyBanner: React.FC = () => {
   return (
     <aside
       aria-label="System operational disclaimer"
-      className="w-full bg-slate-900/95 border-b border-slate-800 text-slate-300 text-xs px-4 py-1.5 flex items-center justify-between gap-3 shadow-panel-highlight select-none z-30"
+      className="eco-disclaimer w-full border-b text-slate-400 text-xs flex items-center justify-between gap-3 select-none z-30"
     >
       <div className="flex items-center gap-2 min-w-0">
         <Info className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden="true" />

@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Sparkles, TriangleAlert, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Category } from '../types';
 import { useScanContext } from '../context/ScanContext';
 import { HONESTY_STRINGS } from '../lib/constants';
-import Viewfinder, { ScanState } from '../components/Viewfinder';
+import Viewfinder, { ScanState } from '../components/MaterialViewfinder';
 import ControlBar from '../components/ControlBar';
 import ScanResultsList from '../components/ScanResultsList';
+import ScanHero from '../components/ScanHero';
+import ScanOverview from '../components/ScanOverview';
 
 export const ScanPage: React.FC = () => {
   const {
@@ -22,7 +24,7 @@ export const ScanPage: React.FC = () => {
     analysisProgressStage,
     scanState,
     backendStatus,
-    setScanState,
+    imagePreview,
   } = useScanContext();
 
   // Interactive Viewfinder Overlays & Toggles
@@ -35,16 +37,23 @@ export const ScanPage: React.FC = () => {
 
   const currentEffectiveScanState: ScanState = isAnalysing ? 'analysing' : scanState;
 
-  // Handle Load Demo Pile (Loads all 12 items)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState('');
   const handleLoadDemoPile = () => {
-    runAnalysis('full');
-    setScanState('results');
+    setUploadError('');
+    void runAnalysis('full');
   };
-
-  // Handle Simulated Photo Upload
-  const handleUploadPhoto = () => {
-    runAnalysis('full');
-    setScanState('results');
+  const handleUploadPhoto = () => fileInputRef.current?.click();
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setUploadError('Choose a JPG, PNG, or WebP image smaller than 10 MB.');
+      return;
+    }
+    setUploadError('');
+    void runAnalysis('full', file);
   };
 
   // Selection toggle (pins item)
@@ -57,7 +66,13 @@ export const ScanPage: React.FC = () => {
   const [showHazardVignette, setShowHazardVignette] = useState(false);
   const hazCount = items.filter((i) => i.isHazardous || i.category === 'hazardous').length;
 
+  const hasRunScan = useRef(false);
   useEffect(() => {
+    if (isAnalysing) {
+      hasRunScan.current = true;
+      return;
+    }
+    if (!hasRunScan.current) return;
     if (hazCount > 0 && currentEffectiveScanState === 'results') {
       setShowHazardVignette(true);
       setShowHazardToast(true);
@@ -78,10 +93,15 @@ export const ScanPage: React.FC = () => {
       setShowHazardToast(false);
       setShowHazardVignette(false);
     }
-  }, [hazCount, currentEffectiveScanState]);
+  }, [hazCount, currentEffectiveScanState, isAnalysing]);
 
   return (
-    <div className="flex-1 w-full max-w-[1600px] mx-auto p-3 sm:p-5 lg:p-6 flex flex-col gap-5 relative">
+    <div className="scan-workspace flex-1 w-full mx-auto flex flex-col relative">
+      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileSelected} aria-label="Upload waste photo" className="sr-only" disabled={isAnalysing} />
+      <ScanHero onScan={handleLoadDemoPile} onUpload={handleUploadPhoto} isAnalysing={isAnalysing} />
+      <ScanOverview items={items} />
+      {uploadError && <p role="alert" className="text-sm text-red-400">{uploadError}</p>}
+      {imagePreview && backendStatus !== 'connected' && <p role="status" className="upload-notice">Photo preview loaded. No image-analysis backend is connected; results below are the sample pile, not detections from your photo.</p>}
       {/* Hazard Radar Flash Vignette (400ms single flash) */}
       {showHazardVignette && (
         <div
@@ -98,7 +118,7 @@ export const ScanPage: React.FC = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -60, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-            className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-surface border border-red-500/50 shadow-2xl text-xs-12 font-medium text-text select-none"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-surface border border-red-500/50 shadow-2xl text-xs-12 font-medium text-text select-none"
             role="alert"
           >
             <TriangleAlert className="w-4 h-4 text-red-400 shrink-0" />
@@ -118,14 +138,14 @@ export const ScanPage: React.FC = () => {
       </AnimatePresence>
 
       {/* Page Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3.5">
+      <div className="workspace-heading flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-lg font-semibold tracking-tight text-white flex items-center gap-2">
             <Camera className="w-5 h-5 text-emerald-400" />
-            <span>Waste Pile Optical Segmentation</span>
-          </h1>
+            <span>Your scan workspace</span>
+          </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Real-time visible surface computer vision analysis, recoverable material categorization, and robot telemetry.
+            One pile. Every material. A clear next step.
           </p>
         </div>
 
@@ -157,11 +177,13 @@ export const ScanPage: React.FC = () => {
         {/* Left Column: Viewfinder Canvas & Control Bar (7 cols on lg / ~58%) */}
         <section
           aria-label="Computer vision viewfinder workspace"
-          className="lg:col-span-7 flex flex-col gap-3.5"
+          className="scanner-panel lg:col-span-7 flex flex-col gap-3.5"
         >
+          <div className="panel-heading"><span><Camera size={15} /> Material viewfinder</span><span className="font-mono text-[10px] text-muted">{imagePreview ? 'UPLOADED PHOTO' : 'SAMPLE PILE / 01'}</span></div>
           <Viewfinder
             scanState={currentEffectiveScanState}
-            items={items}
+            imagePreview={imagePreview}
+            items={imagePreview && backendStatus !== 'connected' ? [] : items}
             activeItemId={activeItemId}
             selectedCategory={selectedCategory}
             confidenceThreshold={confidenceThreshold}

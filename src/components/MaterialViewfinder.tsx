@@ -12,6 +12,7 @@ export type AnimPhase = 'idle' | 'sweeping' | 'flying' | 'complete';
 
 interface ViewfinderProps {
   scanState: ScanState;
+  imagePreview?: string | null;
   items: Item[];
   activeItemId: string | null;
   selectedCategory: Category | 'all';
@@ -31,6 +32,7 @@ interface ViewfinderProps {
 
 export const Viewfinder: React.FC<ViewfinderProps> = ({
   scanState,
+  imagePreview,
   items,
   activeItemId,
   selectedCategory,
@@ -92,7 +94,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
         {/* Top-Right: Telemetry (FPS, Latency) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-muted">
-            30 FPS
+            DEMO
           </span>
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-accent">
             {liveLatencyMs} ms
@@ -176,7 +178,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
                 transition: isSweeping ? 'none' : 'filter 300ms ease-out',
               }}
             >
-              <PileSceneSvg />
+              {imagePreview ? <img src={imagePreview} alt="Uploaded waste pile for analysis" className="w-full h-full object-contain" /> : <PileSceneSvg />}
             </div>
 
             {/* Animation 1: Sweeping 2px emerald beam with soft 120px gradient trail */}
@@ -192,6 +194,8 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
                 <div className="h-[2px] bg-accent shadow-[0_0_12px_#34D399]" />
               </div>
             )}
+
+            {scanState === 'analysing' && <div className="analysis-sweep" aria-hidden="true" />}
 
             {/* Stage text overlay if analysing */}
             {scanState === 'analysing' && !isSweeping && (

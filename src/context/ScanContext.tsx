@@ -2,10 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { Item, Category, ScanResult, ScanState } from '../types';
 import { scanService, BackendStatus } from '../services/scanService';
 import { generateCropsFromImageFile } from '../lib/cropUtils';
-import { APP_INFO } from '../lib/constants';
+import { APP_INFO, BIN_MAPPING } from '../lib/constants';
+import { MOCK_SCAN_RESULT } from '../data/mockData';
 
 interface ScanContextType {
   scanData: ScanResult | null;
+  imagePreview: string | null;
   items: Item[];
   liveLatencyMs: number;
   scanState: ScanState;
@@ -26,8 +28,9 @@ interface ScanContextType {
 const ScanContext = createContext<ScanContextType | undefined>(undefined);
 
 export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [scanData, setScanData] = useState<ScanResult | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
+  const [scanData, setScanData] = useState<ScanResult | null>(() => structuredClone(MOCK_SCAN_RESULT));
+  const [items, setItems] = useState<Item[]>(() => structuredClone(MOCK_SCAN_RESULT.items));
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [scanState, setScanState] = useState<ScanState>('results');
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(scanService.getBackendStatus());
   const [liveLatencyMs, setLiveLatencyMs] = useState<number>(APP_INFO.defaultLatencyMs);
@@ -36,41 +39,33 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [analysisProgressStage, setAnalysisProgressStage] = useState('Detecting items...');
 
-  // Initialize with latest scan on startup
   useEffect(() => {
-    let isMounted = true;
-    scanService.getLatestScan().then((res) => {
-      if (isMounted) {
-        setScanData(res);
-        setItems(res.items);
-      }
-    });
     return () => {
-      isMounted = false;
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
-  }, []);
+  }, [imagePreview]);
 
   // Update an individual item's category (e.g. from low-confidence dropdown)
   const updateItemCategory = useCallback((itemId: string, newCategory: Category) => {
-    setItems((prevItems) =>
-      prevItems.map((item) => {
-        if (item.id === itemId) {
-          const isHazardous = newCategory === 'hazardous';
-          return {
-            ...item,
-            category: newCategory,
-            isHazardous,
-            userConfirmed: true,
-          };
-        }
-        return item;
-      })
-    );
+    const correctItem = (item: Item): Item => item.id === itemId ? {
+      ...item,
+      category: newCategory,
+      isHazardous: newCategory === 'hazardous',
+      targetBin: BIN_MAPPING[newCategory].binName,
+      actionRequired: BIN_MAPPING[newCategory].directive,
+      whyReason: 'Material category confirmed by the user. Follow the updated target-bin directive.',
+      estimatedValueInr: newCategory === item.category ? item.estimatedValueInr : null,
+      userConfirmed: true,
+    } : item;
+    setItems(previous => previous.map(correctItem));
+    setScanData(previous => previous ? { ...previous, items: previous.items.map(correctItem) } : previous);
   }, []);
 
   // Run analysis pipeline via scanService
   const runAnalysis = useCallback(async (sceneType: 'core' | 'full' = 'full', file: File | null = null) => {
     setIsAnalysing(true);
+    setScanState('analysing');
+    setImagePreview(file ? URL.createObjectURL(file) : null);
     setHoveredItemId(null);
     setSelectedItemId(null);
     setAnalysisProgressStage('Detecting items...');
@@ -84,20 +79,22 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, 1400);
 
     try {
-      const result = await scanService.analyse(file, { sceneType, delayMs: 2000 });
+      const result = await scanService.analyse(file, { sceneType, delayMs: 2000, demoOnly: !file });
       clearTimeout(timer1);
       clearTimeout(timer2);
 
       let processedItems = result.items;
-      if (file) {
+      if (file && scanService.getBackendStatus() === 'connected') {
         processedItems = await generateCropsFromImageFile(file, result.items);
       }
 
-      setScanData(result);
+      setScanData({ ...result, items: processedItems });
+      setScanState('results');
       setItems(processedItems);
       setLiveLatencyMs(result.latencyMs);
       setBackendStatus(scanService.getBackendStatus());
     } catch {
+      setScanState('error');
       clearTimeout(timer1);
       clearTimeout(timer2);
       setBackendStatus(scanService.getBackendStatus());
@@ -117,6 +114,7 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <ScanContext.Provider
       value={{
         scanData,
+        imagePreview,
         items,
         liveLatencyMs,
         scanState,

@@ -57,7 +57,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           className="px-4 py-2 rounded-card bg-accent hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-sm-14 flex items-center gap-2 transition-colors cursor-pointer"
         >
           <Camera className="w-4 h-4 text-slate-950" />
-          <span>{isAnalysing ? 'Analysing...' : 'Capture and Analyse'}</span>
+          <span>{isAnalysing ? 'Analysing…' : 'Analyse sample'}</span>
         </button>
 
         {/* Secondary: Upload Photo */}

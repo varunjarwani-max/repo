@@ -6,6 +6,7 @@ export interface AnalyseOptions {
   sceneType?: 'core' | 'full';
   delayMs?: number;
   forceError?: boolean;
+  demoOnly?: boolean;
 }
 
 export type BackendStatus = 'mock' | 'connected' | 'fallback';
@@ -153,9 +154,9 @@ export const scanService: ScanService = {
    * Falls back to mock data if unreachable or payload shape is invalid.
    */
   async analyse(file: File | null = null, options: AnalyseOptions = {}): Promise<ScanResult> {
-    const { sceneType = 'full', delayMs = 2000, forceError = false } = options;
+    const { sceneType = 'full', delayMs = 2000, forceError = false, demoOnly = false } = options;
 
-    if (API_URL && !forceError) {
+    if (API_URL && !forceError && !demoOnly) {
       try {
         let response: Response;
 
