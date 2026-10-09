@@ -100,9 +100,20 @@ export const HONESTY_STRINGS = {
   banner: 'Visible surface only - items beneath the top layer are not counted. Weights and values are estimates. Demo data.',
   auditDisclaimer: 'Estimates only - not a certified weighbridge or audit record.',
   robotNotice: 'Output is robot-ready in format. It has not been tested on physical robot hardware.',
+  surfaceNotice: 'Visible surface only — items beneath the top layer are not counted. Weights and values are estimates.',
+  liveTag: 'Live backend',
+  fallbackTag: 'Demo data — backend unavailable',
   demoTag: 'Demo data',
+  uploadFallback: 'Photo analysis is unavailable. Showing the illustrated demo pile and demo results instead; these are not detections from your uploaded photo.',
+  confirmationTag: 'Needs confirmation',
+  confirmedTag: 'User confirmed',
+  confidenceNotice: 'Confidence is model-reported, not measured accuracy.',
+  geometryNotice: 'Boxes are model estimates. Masks and grasp points are box-derived previews, not measured segmentation or tested robot coordinates.',
   modelVersion: 'ecoscan-seg-v0 (demo)',
   visibleTopLayerNotice: 'Top visible layer analysis',
+  indiaDataNotice: 'Published national figures, not live telemetry or EcoScan measurements. Urban municipal waste only; rural and other waste streams are excluded.',
+  landfillPhotoNotice: 'Historical photographs from 2013. These do not show current landfill conditions and are not a live camera feed.',
+  recyclingDataNotice: 'Processed is not the same as recycled. Processing includes material recovery, composting and waste-to-energy. This report does not provide a separate total or percentage for recycling.',
 } as const;
 
 export const APP_INFO = {

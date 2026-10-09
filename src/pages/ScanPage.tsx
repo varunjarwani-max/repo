@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Sparkles, TriangleAlert, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Category } from '../types';
 import { useScanContext } from '../context/ScanContext';
 import { HONESTY_STRINGS } from '../lib/constants';
-import Viewfinder, { ScanState } from '../components/Viewfinder';
+import Viewfinder, { ScanState } from '../components/MaterialViewfinder';
 import ControlBar from '../components/ControlBar';
 import ScanResultsList from '../components/ScanResultsList';
+import ScanHero from '../components/ScanHero';
+import ScanOverview from '../components/ScanOverview';
+import { useCamera } from '../hooks/useCamera';
 
 export const ScanPage: React.FC = () => {
   const {
@@ -14,6 +17,7 @@ export const ScanPage: React.FC = () => {
     items,
     liveLatencyMs,
     activeItemId,
+    selectedItemId,
     setHoveredItemId,
     setSelectedItemId,
     updateItemCategory,
@@ -22,7 +26,10 @@ export const ScanPage: React.FC = () => {
     analysisProgressStage,
     scanState,
     backendStatus,
-    setScanState,
+    imagePreview,
+    uploadFallback,
+    analysisError,
+    setCameraActive,
   } = useScanContext();
 
   // Interactive Viewfinder Overlays & Toggles
@@ -33,23 +40,54 @@ export const ScanPage: React.FC = () => {
   // Category Filter State (shared between Viewfinder legend & ResultsPanel chips)
   const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
 
-  const currentEffectiveScanState: ScanState = isAnalysing ? 'analysing' : scanState;
-
-  // Handle Load Demo Pile (Loads all 12 items)
-  const handleLoadDemoPile = () => {
-    runAnalysis('full');
-    setScanState('results');
+  const camera = useCamera(setCameraActive);
+  const lastFrame = useRef<File | null>(null);
+  const captureInFlight = useRef(false);
+  const handleCameraScan = async () => {
+    if (isAnalysing || captureInFlight.current) return;
+    if (!camera.stream) { await camera.start(); return; }
+    captureInFlight.current = true;
+    try {
+      const frame = await camera.capture();
+      if (!frame) return;
+      lastFrame.current = frame;
+      camera.stop();
+      setUploadError('');
+      await runAnalysis('full', frame);
+    } finally { captureInFlight.current = false; }
   };
+  const handleRetry = () => {
+    if (lastFrame.current) void runAnalysis('full', lastFrame.current);
+    else void camera.start();
+  };
+  const currentEffectiveScanState: ScanState = isAnalysing ? 'analysing' : camera.stream ? 'idle' : scanState;
 
-  // Handle Simulated Photo Upload
-  const handleUploadPhoto = () => {
-    runAnalysis('full');
-    setScanState('results');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState('');
+  const handleLoadDemoPile = () => {
+    camera.stop();
+    lastFrame.current = null;
+    setUploadError('');
+    void runAnalysis('full');
+  };
+  const handleUploadPhoto = () => fileInputRef.current?.click();
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setUploadError('Choose a JPG, PNG, or WebP image smaller than 10 MB.');
+      return;
+    }
+    camera.stop();
+    lastFrame.current = file;
+    setUploadError('');
+    void runAnalysis('full', file);
   };
 
   // Selection toggle (pins item)
   const handleItemSelect = (id: string) => {
-    setSelectedItemId(activeItemId === id ? null : id);
+    setSelectedItemId(selectedItemId === id ? null : id);
   };
 
   // Animation 3: Hazard Radar toast & vignette trigger
@@ -57,7 +95,13 @@ export const ScanPage: React.FC = () => {
   const [showHazardVignette, setShowHazardVignette] = useState(false);
   const hazCount = items.filter((i) => i.isHazardous || i.category === 'hazardous').length;
 
+  const hasRunScan = useRef(false);
   useEffect(() => {
+    if (isAnalysing) {
+      hasRunScan.current = true;
+      return;
+    }
+    if (!hasRunScan.current) return;
     if (hazCount > 0 && currentEffectiveScanState === 'results') {
       setShowHazardVignette(true);
       setShowHazardToast(true);
@@ -78,10 +122,19 @@ export const ScanPage: React.FC = () => {
       setShowHazardToast(false);
       setShowHazardVignette(false);
     }
-  }, [hazCount, currentEffectiveScanState]);
+  }, [hazCount, currentEffectiveScanState, isAnalysing]);
 
   return (
-    <div className="flex-1 w-full max-w-[1600px] mx-auto p-3 sm:p-5 lg:p-6 flex flex-col gap-5 relative">
+    <div className="scan-workspace flex-1 w-full mx-auto flex flex-col relative">
+      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileSelected} aria-label="Upload waste photo" className="sr-only" disabled={isAnalysing} />
+      <ScanHero onScan={() => void handleCameraScan()} onUpload={handleUploadPhoto} isAnalysing={isAnalysing} cameraActive={Boolean(camera.stream)} cameraOpening={camera.isOpening} />
+      <p className="text-xs text-muted">Camera video stays in your browser. Capture &amp; analyse sends one frame to Gemini; results refer to that frozen frame. No physical robot is controlled.</p>
+      {camera.error && <p role="alert" className="upload-notice">{camera.error}</p>}
+      {analysisError && <p role="alert" className="upload-notice">{analysisError}</p>}
+      <ScanOverview items={items} />
+      {uploadError && <p role="alert" className="text-sm text-red-400">{uploadError}</p>}
+      {uploadFallback && <p role="status" className="upload-notice">{HONESTY_STRINGS.uploadFallback}</p>}
+      {hazCount > 0 && !isAnalysing && <aside role="alert" className="flex items-start gap-3 rounded-xl border border-red-500/50 bg-red-950/30 p-3 text-sm text-red-200"><TriangleAlert className="shrink-0 text-red-400" size={20} /><div><strong>{hazCount} hazardous items flagged</strong><p>Do not place these in normal bins. Review the flagged items and follow local hazardous-waste guidance.</p></div></aside>}
       {/* Hazard Radar Flash Vignette (400ms single flash) */}
       {showHazardVignette && (
         <div
@@ -98,7 +151,7 @@ export const ScanPage: React.FC = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -60, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-            className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-surface border border-red-500/50 shadow-2xl text-xs-12 font-medium text-text select-none"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-surface border border-red-500/50 shadow-2xl text-xs-12 font-medium text-text select-none"
             role="alert"
           >
             <TriangleAlert className="w-4 h-4 text-red-400 shrink-0" />
@@ -118,26 +171,26 @@ export const ScanPage: React.FC = () => {
       </AnimatePresence>
 
       {/* Page Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3.5">
+      <div className="workspace-heading flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-lg font-semibold tracking-tight text-white flex items-center gap-2">
             <Camera className="w-5 h-5 text-emerald-400" />
-            <span>Waste Pile Optical Segmentation</span>
-          </h1>
+            <span>Your scan workspace</span>
+          </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Real-time visible surface computer vision analysis, recoverable material categorization, and robot telemetry.
+            One pile. Every material. A clear next step.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-slate-300 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-emerald-400" />
-            <span>Model: {scanData?.modelVersion || HONESTY_STRINGS.modelVersion}</span>
+            <span>Model: {scanData?.modelVersion || 'Gemini · awaiting scan'}</span>
           </span>
           {backendStatus === 'fallback' ? (
             <span className="font-mono text-xs text-amber-300 px-2.5 py-1 rounded-full bg-amber-950/60 border border-amber-500/40 flex items-center gap-1.5 shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span>Using demo data (backend unreachable)</span>
+              <span>Analysis unavailable · no detections</span>
             </span>
           ) : backendStatus === 'connected' ? (
             <span className="font-mono text-xs text-emerald-300 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 flex items-center gap-1.5">
@@ -146,7 +199,7 @@ export const ScanPage: React.FC = () => {
             </span>
           ) : (
             <span className="font-mono text-xs text-slate-400 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800">
-              {HONESTY_STRINGS.demoTag}
+              {scanData?.source === 'demo' ? HONESTY_STRINGS.demoTag : 'Awaiting capture'}
             </span>
           )}
         </div>
@@ -157,11 +210,18 @@ export const ScanPage: React.FC = () => {
         {/* Left Column: Viewfinder Canvas & Control Bar (7 cols on lg / ~58%) */}
         <section
           aria-label="Computer vision viewfinder workspace"
-          className="lg:col-span-7 flex flex-col gap-3.5"
+          className="scanner-panel lg:col-span-7 flex flex-col gap-3.5"
         >
+          <div className="panel-heading"><span><Camera size={15} /> Material viewfinder</span><span className="font-mono text-[10px] text-muted">{camera.stream ? 'LIVE CAMERA PREVIEW' : imagePreview ? 'CAPTURED / UPLOADED FRAME' : scanData?.source === 'demo' ? 'DEMO PILE' : 'AWAITING CAPTURE'}</span></div>
           <Viewfinder
             scanState={currentEffectiveScanState}
-            items={items}
+            cameraActive={Boolean(camera.stream)}
+            videoRef={camera.videoRef}
+            analysisError={analysisError}
+            imagePreview={camera.stream ? null : imagePreview}
+            imageAspectRatio={imagePreview && scanData ? scanData.imageWidth / scanData.imageHeight : undefined}
+            liveMode={backendStatus === 'connected'}
+            items={isAnalysing ? [] : items}
             activeItemId={activeItemId}
             selectedCategory={selectedCategory}
             confidenceThreshold={confidenceThreshold}
@@ -172,7 +232,7 @@ export const ScanPage: React.FC = () => {
             onItemHover={setHoveredItemId}
             onItemSelect={handleItemSelect}
             onCategoryFilterChange={setSelectedCategory}
-            onRetry={() => runAnalysis('full')}
+            onRetry={handleRetry}
             onUploadClick={handleUploadPhoto}
           />
 
@@ -181,7 +241,10 @@ export const ScanPage: React.FC = () => {
             showMasks={showMasks}
             showGraspPoints={showGraspPoints}
             confidenceThreshold={confidenceThreshold}
-            onCaptureAndAnalyse={() => runAnalysis('full')}
+            onCaptureAndAnalyse={() => void handleCameraScan()}
+            cameraActive={Boolean(camera.stream)}
+            cameraOpening={camera.isOpening}
+            onStopCamera={camera.stop}
             onUploadPhoto={handleUploadPhoto}
             onLoadDemoPile={handleLoadDemoPile}
 
@@ -189,11 +252,14 @@ export const ScanPage: React.FC = () => {
             onToggleGraspPoints={() => setShowGraspPoints((prev) => !prev)}
             onConfidenceThresholdChange={setConfidenceThreshold}
           />
+          <p className="text-xs text-muted">{HONESTY_STRINGS.confidenceNotice} {HONESTY_STRINGS.geometryNotice}</p>
         </section>
 
         {/* Right Column: Scan Results List (5 cols on lg / ~42%) */}
         <section aria-label="Segmentation results list" className="lg:col-span-5 flex flex-col h-full">
           <ScanResultsList
+            isAnalysing={isAnalysing}
+            sourceLabel={scanData?.source === 'live' ? HONESTY_STRINGS.liveTag : scanData?.source === 'demo' ? HONESTY_STRINGS.demoTag : 'No scan yet'}
             items={items}
             activeItemId={activeItemId}
             selectedCategory={selectedCategory}

@@ -1,11 +1,15 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { Item, Category, ScanResult, ScanState } from '../types';
 import { scanService, BackendStatus } from '../services/scanService';
 import { generateCropsFromImageFile } from '../lib/cropUtils';
-import { APP_INFO } from '../lib/constants';
+import { BIN_MAPPING } from '../lib/constants';
 
 interface ScanContextType {
   scanData: ScanResult | null;
+  imagePreview: string | null;
+  cameraActive: boolean;
+  setCameraActive: (active: boolean) => void;
+  uploadFallback: boolean;
   items: Item[];
   liveLatencyMs: number;
   scanState: ScanState;
@@ -21,6 +25,7 @@ interface ScanContextType {
   runAnalysis: (sceneType?: 'core' | 'full', file?: File | null) => Promise<void>;
   isAnalysing: boolean;
   analysisProgressStage: string;
+  analysisError: string;
 }
 
 const ScanContext = createContext<ScanContextType | undefined>(undefined);
@@ -28,49 +33,52 @@ const ScanContext = createContext<ScanContextType | undefined>(undefined);
 export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [scanData, setScanData] = useState<ScanResult | null>(null);
   const [items, setItems] = useState<Item[]>([]);
-  const [scanState, setScanState] = useState<ScanState>('results');
+  const [analysisError, setAnalysisError] = useState('');
+  const [cameraActive, setCameraActive] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadFallback, setUploadFallback] = useState(false);
+  const analysisInFlight = useRef(false);
+  const [scanState, setScanState] = useState<ScanState>('idle');
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(scanService.getBackendStatus());
-  const [liveLatencyMs, setLiveLatencyMs] = useState<number>(APP_INFO.defaultLatencyMs);
+  const [liveLatencyMs, setLiveLatencyMs] = useState<number>(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [analysisProgressStage, setAnalysisProgressStage] = useState('Detecting items...');
 
-  // Initialize with latest scan on startup
   useEffect(() => {
-    let isMounted = true;
-    scanService.getLatestScan().then((res) => {
-      if (isMounted) {
-        setScanData(res);
-        setItems(res.items);
-      }
-    });
     return () => {
-      isMounted = false;
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
-  }, []);
+  }, [imagePreview]);
 
   // Update an individual item's category (e.g. from low-confidence dropdown)
   const updateItemCategory = useCallback((itemId: string, newCategory: Category) => {
-    setItems((prevItems) =>
-      prevItems.map((item) => {
-        if (item.id === itemId) {
-          const isHazardous = newCategory === 'hazardous';
-          return {
-            ...item,
-            category: newCategory,
-            isHazardous,
-            userConfirmed: true,
-          };
-        }
-        return item;
-      })
-    );
+    const correctItem = (item: Item): Item => item.id === itemId ? {
+      ...item,
+      category: newCategory,
+      isHazardous: newCategory === 'hazardous',
+      targetBin: BIN_MAPPING[newCategory].binName,
+      actionRequired: BIN_MAPPING[newCategory].directive,
+      whyReason: 'Material category confirmed by the user. Follow the updated target-bin directive.',
+      estimatedValueInr: newCategory === item.category ? item.estimatedValueInr : null,
+      userConfirmed: true,
+    } : item;
+    setItems(previous => previous.map(correctItem));
+    setScanData(previous => previous ? { ...previous, items: previous.items.map(correctItem) } : previous);
   }, []);
 
   // Run analysis pipeline via scanService
   const runAnalysis = useCallback(async (sceneType: 'core' | 'full' = 'full', file: File | null = null) => {
+    if (analysisInFlight.current) return;
+    analysisInFlight.current = true;
+    setUploadFallback(false);
+    setAnalysisError('');
+    setItems([]);
+    setScanData(null);
     setIsAnalysing(true);
+    setScanState('analysing');
+    setImagePreview(file ? URL.createObjectURL(file) : null);
     setHoveredItemId(null);
     setSelectedItemId(null);
     setAnalysisProgressStage('Detecting items...');
@@ -80,28 +88,38 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, 700);
 
     const timer2 = setTimeout(() => {
-      setAnalysisProgressStage('Estimating recoverable values...');
+      setAnalysisProgressStage(file ? 'Waiting for Gemini detections...' : 'Preparing demo results...');
     }, 1400);
 
     try {
-      const result = await scanService.analyse(file, { sceneType, delayMs: 2000 });
+      const result = await scanService.analyse(file, { sceneType, delayMs: 2000, demoOnly: !file });
       clearTimeout(timer1);
       clearTimeout(timer2);
 
       let processedItems = result.items;
-      if (file) {
+      if (file && scanService.getBackendStatus() === 'connected') {
         processedItems = await generateCropsFromImageFile(file, result.items);
       }
 
-      setScanData(result);
+      if (file && result.source !== 'live') {
+        setImagePreview(null);
+        setUploadFallback(true);
+      }
+      setScanData({ ...result, items: processedItems });
+      setScanState('results');
       setItems(processedItems);
       setLiveLatencyMs(result.latencyMs);
       setBackendStatus(scanService.getBackendStatus());
-    } catch {
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Analysis failed. Please retry.');
+      setItems([]);
+      setScanData(null);
+      setScanState('error');
       clearTimeout(timer1);
       clearTimeout(timer2);
       setBackendStatus(scanService.getBackendStatus());
     } finally {
+      analysisInFlight.current = false;
       setIsAnalysing(false);
     }
   }, []);
@@ -109,14 +127,17 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const activeItemId = hoveredItemId || selectedItemId;
 
   const loadDemoPile = useCallback(() => {
-    runAnalysis('full');
-    setScanState('results');
+    void runAnalysis('full');
   }, [runAnalysis]);
 
   return (
     <ScanContext.Provider
       value={{
         scanData,
+        imagePreview,
+        cameraActive,
+        setCameraActive,
+        uploadFallback,
         items,
         liveLatencyMs,
         scanState,
@@ -132,6 +153,7 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         runAnalysis,
         isAnalysing,
         analysisProgressStage,
+        analysisError,
       }}
     >
       {children}

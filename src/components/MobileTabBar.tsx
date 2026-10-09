@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Camera, FileText, MapPin, Cpu, Bot } from 'lucide-react';
+import { Camera, FileText, MapPin, Globe2, Bot } from 'lucide-react';
 
 interface MobileTabBarProps {
   onToggleEcoBot?: () => void;
@@ -12,10 +12,10 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   isEcoBotOpen = false,
 }) => {
   const tabs = [
+    { to: '/', label: 'Home', icon: Globe2 },
     { to: '/scan', label: 'Scan', icon: Camera },
     { to: '/audit', label: 'Audit', icon: FileText },
     { to: '/sites', label: 'Sites', icon: MapPin },
-    { to: '/robot-api', label: 'Robot API', icon: Cpu },
   ];
 
   return (
@@ -29,6 +29,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
           <NavLink
             key={tab.to}
             to={tab.to}
+            end={tab.to === '/'}
             className={({ isActive }) =>
               `flex flex-col items-center justify-center w-14 h-full py-1 text-[10px] font-medium transition-colors ${
                 isActive

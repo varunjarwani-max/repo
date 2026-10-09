@@ -37,9 +37,9 @@ export const EcoBotDrawer: React.FC<EcoBotDrawerProps> = ({
         {
           id: 'msg-welcome',
           sender: 'bot',
-          text: `Hello! I'm EcoScan's AI assistant. I have live telemetry for ${items.length} segmented waste items on the visible top layer. How can I assist your sorting operation?`,
+          text: `Hello! I can explain the ${items.length} items in the current scan using local, rule-based replies. I do not make a live AI model call. What would you like to know?`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          sourceChip: 'EcoBot v0.9 (demo)',
+          sourceChip: 'Local rule-based assistant',
         },
       ]);
     }
@@ -120,7 +120,7 @@ export const EcoBotDrawer: React.FC<EcoBotDrawerProps> = ({
           const names = hazItems.map((i) => `#${i.itemNumber} ${i.label}`).join(', ');
           return {
             sender: 'bot',
-            text: `Flagged ${hazItems.length} hazardous item(s): ${names}.\n\nFollow your local hazardous-waste handling rules. Do not compact, crush or puncture.\n\nMandatory Protocol: Remove manually before mechanical sorting or baling. Transfer immediately to a dedicated red container and take to an authorized drop-off depot.`,
+            text: `Flagged ${hazItems.length} potentially hazardous item(s): ${names}.\n\n${hazItems.map(item => `#${item.itemNumber}: ${item.actionRequired}`).join('\n')}\n\nFollow local hazardous-waste handling rules. This is not a certified safety procedure.`,
             sourceChip: 'From hazard safety directive',
             miniItems: hazItems,
           };

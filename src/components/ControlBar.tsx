@@ -4,6 +4,9 @@ import { ScanState } from '../types';
 
 interface ControlBarProps {
   scanState: ScanState;
+  cameraActive?: boolean;
+  cameraOpening?: boolean;
+  onStopCamera?: () => void;
   showMasks: boolean;
   showGraspPoints: boolean;
   confidenceThreshold: number;
@@ -17,6 +20,9 @@ interface ControlBarProps {
 
 export const ControlBar: React.FC<ControlBarProps> = ({
   scanState,
+  cameraActive = false,
+  cameraOpening = false,
+  onStopCamera,
   showMasks,
   showGraspPoints,
   confidenceThreshold,
@@ -52,14 +58,15 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         {/* Primary Action: Capture and Analyse */}
         <button
           type="button"
-          disabled={isAnalysing}
+          disabled={isAnalysing || cameraOpening}
           onClick={onCaptureAndAnalyse}
           className="px-4 py-2 rounded-card bg-accent hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-sm-14 flex items-center gap-2 transition-colors cursor-pointer"
         >
           <Camera className="w-4 h-4 text-slate-950" />
-          <span>{isAnalysing ? 'Analysing...' : 'Capture and Analyse'}</span>
+          <span>{isAnalysing ? 'Analysing…' : cameraOpening ? 'Opening camera…' : cameraActive ? 'Capture & analyse' : 'Open camera'}</span>
         </button>
 
+        {cameraActive && <button type="button" onClick={onStopCamera} className="px-3 py-2 rounded-card border border-border text-sm text-muted hover:text-text">Stop camera</button>}
         {/* Secondary: Upload Photo */}
         <button
           type="button"
@@ -100,7 +107,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 bottom-full mb-2 w-72 bg-surface-2 border border-border rounded-panel p-3.5 shadow-2xl z-40 space-y-3 font-sans text-xs-12">
+          <div className="absolute left-0 sm:left-auto sm:right-0 bottom-full mb-2 w-72 max-w-[calc(100vw-64px)] bg-surface-2 border border-border rounded-panel p-3.5 shadow-2xl z-40 space-y-3 font-sans text-xs-12">
             <div className="flex items-center justify-between border-b border-border pb-2">
               <span className="font-semibold text-text text-sm-14">Viewfinder Settings</span>
               <span className="font-mono text-[10px] text-muted">OVERLAYS</span>
@@ -147,6 +154,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
               </div>
               <input
                 type="range"
+                aria-label="Confidence threshold"
                 min="0"
                 max="100"
                 value={confidenceThreshold}

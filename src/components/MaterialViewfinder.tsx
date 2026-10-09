@@ -12,6 +12,12 @@ export type AnimPhase = 'idle' | 'sweeping' | 'flying' | 'complete';
 
 interface ViewfinderProps {
   scanState: ScanState;
+  imagePreview?: string | null;
+  imageAspectRatio?: number;
+  liveMode?: boolean;
+  cameraActive?: boolean;
+  videoRef?: React.RefObject<HTMLVideoElement>;
+  analysisError?: string;
   items: Item[];
   activeItemId: string | null;
   selectedCategory: Category | 'all';
@@ -31,6 +37,12 @@ interface ViewfinderProps {
 
 export const Viewfinder: React.FC<ViewfinderProps> = ({
   scanState,
+  imagePreview,
+  imageAspectRatio,
+  liveMode = false,
+  cameraActive = false,
+  videoRef,
+  analysisError,
   items,
   activeItemId,
   selectedCategory,
@@ -65,6 +77,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
   return (
     <div
       className="relative w-full aspect-[16/10] bg-bg rounded-panel border border-border overflow-hidden select-none"
+      style={imagePreview && imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
       aria-label="Waste pile computer vision viewfinder canvas"
     >
       {/* 4 Corner Brackets (accent emerald) */}
@@ -79,10 +92,10 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-accent flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            <span>{scanState === 'results' ? 'CAPTURED' : 'LIVE'}</span>
+            <span>{scanState === 'analysing' ? 'ANALYSING' : cameraActive ? 'CAMERA' : imagePreview ? 'CAPTURED FRAME' : scanState === 'idle' ? 'READY' : 'SAMPLE'}</span>
           </span>
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-text">
-            {APP_INFO.resolution}
+            {cameraActive ? 'LIVE PREVIEW' : imagePreview ? 'STILL IMAGE' : scanState === 'idle' ? 'NO FRAME' : APP_INFO.resolution}
           </span>
           <span className="hidden sm:inline font-mono text-[10px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-muted">
             SURFACE-SEG
@@ -92,25 +105,26 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
         {/* Top-Right: Telemetry (FPS, Latency) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-muted">
-            30 FPS
+            {liveMode ? 'GEMINI' : cameraActive || scanState === 'idle' ? 'NOT ANALYSED' : scanState === 'error' ? 'FAILED' : 'DEMO'}
           </span>
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-accent">
-            {liveLatencyMs} ms
+            {scanState === 'idle' || scanState === 'error' || scanState === 'analysing' || cameraActive ? '—' : `${liveLatencyMs} ms`}
           </span>
         </div>
       </div>
 
       {/* Canvas Interior by Scan State */}
       <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+        {cameraActive && <video ref={videoRef} autoPlay playsInline muted aria-label="Live camera preview" className="absolute inset-0 w-full h-full object-contain bg-bg" />}
         {/* 1. STATE: IDLE */}
-        {scanState === 'idle' && (
+        {scanState === 'idle' && !cameraActive && (
           <div className="flex flex-col items-center justify-center px-12 py-8 text-center z-10 max-w-sm mx-auto">
             <div className="w-14 h-14 rounded-card border border-dashed border-border bg-surface flex items-center justify-center text-muted mb-3 group hover:border-accent transition-colors">
               <Camera className="w-6 h-6 text-accent" />
             </div>
             <h3 className="text-sm-14 font-semibold text-text">Viewfinder Ready</h3>
             <p className="text-xs-12 text-muted mt-1.5 leading-relaxed">
-              Upload a photo of a waste pile, or load the demo pile.
+              Open your camera and capture a frame for Gemini analysis, or upload a photo. No detections appear until you scan.
             </p>
           </div>
         )}
@@ -152,7 +166,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
             </div>
             <h3 className="text-sm-14 font-semibold text-text">Analysis Failed</h3>
             <p className="text-xs-12 text-muted mt-1.5">
-              Could not segment items on optical feed. Check lighting conditions or retry scanning.
+              {analysisError || 'Could not analyse this frame. Retry the camera capture or upload a photo.'}
             </p>
             <button
               type="button"
@@ -166,7 +180,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
         )}
 
         {/* 4. BASE SVG PILE SCENE (Present during analysing, results, and low_confidence) */}
-        {(scanState === 'analysing' || scanState === 'results' || scanState === 'low_confidence') && (
+        {!cameraActive && (scanState === 'analysing' || scanState === 'results' || scanState === 'low_confidence') && (
           <div className="absolute inset-0 w-full h-full">
             {/* Vector Scene with dynamic blur & desaturate transition during sweep */}
             <div
@@ -176,7 +190,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
                 transition: isSweeping ? 'none' : 'filter 300ms ease-out',
               }}
             >
-              <PileSceneSvg />
+              {imagePreview ? <img src={imagePreview} alt="Uploaded waste pile for analysis" className="w-full h-full object-contain" /> : <PileSceneSvg />}
             </div>
 
             {/* Animation 1: Sweeping 2px emerald beam with soft 120px gradient trail */}
@@ -193,6 +207,8 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
               </div>
             )}
 
+            {scanState === 'analysing' && <div className="analysis-sweep" aria-hidden="true" />}
+
             {/* Stage text overlay if analysing */}
             {scanState === 'analysing' && !isSweeping && (
               <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 bg-surface/90 border border-border px-4 py-2 rounded-full flex items-center gap-2.5 shadow-xl">
@@ -208,13 +224,13 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
               <>
                 <svg
                   viewBox="0 0 1000 625"
-                  preserveAspectRatio="xMidYMid slice"
+                  preserveAspectRatio="none"
                   className="absolute inset-0 w-full h-full z-10 overflow-visible"
                 >
                   {visibleItems.map((item, idx) => {
                     const isActive = activeItemId === item.id;
                     const isDimmed = activeItemId !== null && activeItemId !== item.id;
-                    const isBelowThreshold = item.confidence * 100 < confidenceThreshold;
+                    const isBelowThreshold = !item.userConfirmed && item.confidence * 100 < confidenceThreshold;
                     const isDiscovered = isSweeping ? beamProgress >= item.bbox.y : true;
 
                     return (

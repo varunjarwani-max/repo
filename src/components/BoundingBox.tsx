@@ -29,13 +29,13 @@ export const BoundingBox: React.FC<BoundingBoxProps> = ({
 }) => {
   // SVG coordinates in 1000x625 space
   const svgX = item.bbox.x * 1000;
-  const svgY = item.bbox.y * 1000;
+  const svgY = item.bbox.y * 625;
   const svgW = item.bbox.width * 1000;
-  const svgH = item.bbox.height * 1000;
+  const svgH = item.bbox.height * 625;
   const perimeter = Math.round(2 * (svgW + svgH));
 
   const graspX = item.graspPoint.x * 1000;
-  const graspY = item.graspPoint.y * 1000;
+  const graspY = item.graspPoint.y * 625;
 
   const categoryColor = CATEGORY_COLORS[item.category];
   const meta = CATEGORY_META[item.category];
@@ -119,7 +119,7 @@ export const BoundingBox: React.FC<BoundingBoxProps> = ({
             height={svgH + 10}
             rx={10}
             fill="none"
-            stroke="#EF4444"
+            stroke={CATEGORY_COLORS.hazardous}
             strokeWidth="1.5"
             strokeDasharray="5 3"
             className="animate-pulse-hazard"
@@ -129,14 +129,14 @@ export const BoundingBox: React.FC<BoundingBoxProps> = ({
             <circle
               r={Math.max(12, Math.min(svgW, svgH) * 0.3)}
               fill="none"
-              stroke="#EF4444"
+              stroke={CATEGORY_COLORS.hazardous}
               strokeWidth="2"
               className="hazard-radar-ring-1"
             />
             <circle
               r={Math.max(12, Math.min(svgW, svgH) * 0.3)}
               fill="none"
-              stroke="#EF4444"
+              stroke={CATEGORY_COLORS.hazardous}
               strokeWidth="1.5"
               className="hazard-radar-ring-2"
             />
@@ -207,10 +207,10 @@ export const BoundingBox: React.FC<BoundingBoxProps> = ({
       {/* 5. Robotic Grasp Point (Crosshair Target) */}
       {showGraspPoints && (
         <g transform={`translate(${graspX}, ${graspY})`} pointerEvents="none">
-          <circle r="6" fill="none" stroke="#10B981" strokeWidth="1.5" />
+          <circle r="6" fill="none" stroke={CATEGORY_COLORS.recyclable} strokeWidth="1.5" />
           <circle r="1.5" fill="#10B981" />
-          <line x1="-10" y1="0" x2="10" y2="0" stroke="#10B981" strokeWidth="1.2" />
-          <line x1="0" y1="-10" x2="0" y2="10" stroke="#10B981" strokeWidth="1.2" />
+          <line x1="-10" y1="0" x2="10" y2="0" stroke={CATEGORY_COLORS.recyclable} strokeWidth="1.2" />
+          <line x1="0" y1="-10" x2="0" y2="10" stroke={CATEGORY_COLORS.recyclable} strokeWidth="1.2" />
         </g>
       )}
     </g>

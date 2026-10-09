@@ -52,6 +52,8 @@ export interface ScanResult {
   imageHeight: number;
   modelVersion: string;
   latencyMs: number;
+  source?: 'live' | 'demo';
+  imageKey?: string;
   items: Item[];
 }
 
@@ -116,6 +118,8 @@ export interface RobotItemPayload {
 }
 
 export interface RobotOutputEnvelope {
+  source: 'live' | 'demo';
+  limitations: string[];
   scanId: string;
   siteId: string;
   timestamp: string;
