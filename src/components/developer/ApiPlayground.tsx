@@ -49,7 +49,7 @@ export function ApiPlayground({ apiKey, setApiKey, admin }: { apiKey: string; se
     finally { setBusy(false); }
   }
   const detections = result?.status === 200 ? result.body.result?.detectedItems || [] : [];
-  return <section aria-labelledby="playground-title" className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5 min-w-0">
+  return <section id="api-playground" style={{ scrollMarginTop: 100 }} aria-labelledby="playground-title" className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5 min-w-0">
     <div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-sky-500/10 text-sky-300"><Terminal size={19} /></div><div><h2 id="playground-title" className="font-semibold text-white">API playground</h2><p className="text-xs text-slate-400 mt-1">Real requests. Inspect every response.</p></div></div>
     <form onSubmit={execute} className="space-y-4">
       <div><label htmlFor="test-api-key" className="block text-xs text-slate-300 mb-2">Enter Your API Key <code className="text-slate-500">(x-api-key)</code></label><input id="test-api-key" type="password" autoComplete="off" spellCheck={false} value={apiKey} onChange={event => { setApiKey(event.target.value); setResult(null); }} placeholder="eco_live_…" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm font-mono text-white" /></div>

@@ -4,6 +4,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Camera, Check, Globe2, Leaf, Recyc
 import WorldGlobe from '../components/WorldGlobe';
 import ScanPreview from '../components/ScanPreview';
 import EverydayImpact from '../components/EverydayImpact';
+import RoboticsSection from '../components/RoboticsSection';
 import IndiaWasteStory from '../components/IndiaWasteStory';
 import '../landing.css';
 
@@ -39,6 +40,7 @@ export default function HomePage() {
             <a href="#india-story" className="landing-button landing-button-ghost">Explore India&apos;s waste <ArrowDown size={15} /></a>
           </div>
           <div className="landing-hero-note"><Check size={14} /><span>No account needed</span><span className="note-separator">/</span><span>A frame, not a continuous feed</span></div>
+          <a href="#robotics" className="robotics-hero-link">Building a sorting machine? Explore our robotics vision <ArrowDown size={14} /></a>
         </div>
         <ScanPreview />
         <div className="landing-hero-bottom"><span><Globe2 size={13} /> BUILT FOR A MORE CIRCULAR WORLD</span><a href="#how-it-works">SCROLL TO DISCOVER <ArrowDown size={13} /></a></div>
@@ -56,6 +58,8 @@ export default function HomePage() {
         })}</div>
         <p className="workflow-footnote"><Sparkles size={14} /> Powered by Gemini image understanding when the server API key is configured. The scanner clearly reports unavailable analysis.</p>
       </section>
+
+      <RoboticsSection />
 
       <EverydayImpact />
 

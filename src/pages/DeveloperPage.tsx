@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Code2, LockKeyhole, ArrowUpRight } from 'lucide-react';
 import { ApiKeyManager } from '../components/developer/ApiKeyManager';
 import { ApiPlayground } from '../components/developer/ApiPlayground';
@@ -7,6 +8,12 @@ export default function DeveloperPage() {
   const [adminDraft, setAdminDraft] = useState('');
   const [admin, setAdmin] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash !== '#api-keys' && hash !== '#api-playground') return;
+    const frame = requestAnimationFrame(() => document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' }));
+    return () => cancelAnimationFrame(frame);
+  }, [hash]);
   return <div className="w-full max-w-7xl mx-auto p-4 sm:p-8 space-y-6">
     <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-800 pb-6">
       <div><div className="flex items-center gap-2 font-mono text-[11px] text-emerald-400 uppercase tracking-widest mb-3"><Code2 size={15} />Build with EcoScan</div><h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">Developer & API Hub</h1><p className="text-sm text-slate-400 mt-2 max-w-xl leading-relaxed">One endpoint. From a waste photo to sorting intelligence.<br />Connect your robot, prototype, or next hackathon idea.</p></div>

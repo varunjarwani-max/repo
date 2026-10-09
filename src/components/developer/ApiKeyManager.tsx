@@ -41,7 +41,7 @@ export function ApiKeyManager({ admin, onIssue }: { admin: string; onIssue: (key
     finally { setBusy(false); }
   }
   const curl = `curl.exe -X POST "${window.location.origin}/api/v1/classify-external" -H "x-api-key: YOUR_ECO_API_KEY" -F "image=@waste.jpg"`;
-  return <section aria-labelledby="key-manager-title" className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5 min-w-0">
+  return <section id="api-keys" style={{ scrollMarginTop: 100 }} aria-labelledby="key-manager-title" className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5 min-w-0">
     <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400"><KeyRound size={19} /></div><div><h2 id="key-manager-title" className="font-semibold text-white">API key manager</h2><p className="text-xs text-slate-400 mt-1">Issue access. Stay in control.</p></div></div><button type="button" aria-label="Refresh API keys" onClick={() => void mutate()} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400"><RefreshCw size={15} /></button></div>
     <form onSubmit={generate} className="space-y-3">
       <div><label htmlFor="key-label" className="block text-xs text-slate-300 mb-2">Key name <span className="text-slate-500">(optional)</span></label><input id="key-label" maxLength={80} value={label} onChange={event => setLabel(event.target.value)} placeholder="Default Robotics Key" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-slate-500" /></div>
