@@ -119,6 +119,7 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
           <button
             type="button"
             onClick={handleExportCsv}
+            disabled={isAnalysing || sourceLabel === 'No scan yet'}
             title="Export CSV of items"
             aria-label="Export items as CSV"
             className="p-1.5 rounded-card bg-surface-2 border border-border text-muted hover:text-text hover:border-white/20 transition-colors cursor-pointer shrink-0"

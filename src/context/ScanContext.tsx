@@ -2,12 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Item, Category, ScanResult, ScanState } from '../types';
 import { scanService, BackendStatus } from '../services/scanService';
 import { generateCropsFromImageFile } from '../lib/cropUtils';
-import { APP_INFO, BIN_MAPPING } from '../lib/constants';
-import { MOCK_SCAN_RESULT } from '../data/mockData';
+import { BIN_MAPPING } from '../lib/constants';
 
 interface ScanContextType {
   scanData: ScanResult | null;
   imagePreview: string | null;
+  cameraActive: boolean;
+  setCameraActive: (active: boolean) => void;
   uploadFallback: boolean;
   items: Item[];
   liveLatencyMs: number;
@@ -24,19 +25,22 @@ interface ScanContextType {
   runAnalysis: (sceneType?: 'core' | 'full', file?: File | null) => Promise<void>;
   isAnalysing: boolean;
   analysisProgressStage: string;
+  analysisError: string;
 }
 
 const ScanContext = createContext<ScanContextType | undefined>(undefined);
 
 export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [scanData, setScanData] = useState<ScanResult | null>(() => structuredClone(MOCK_SCAN_RESULT));
-  const [items, setItems] = useState<Item[]>(() => structuredClone(MOCK_SCAN_RESULT.items));
+  const [scanData, setScanData] = useState<ScanResult | null>(null);
+  const [items, setItems] = useState<Item[]>([]);
+  const [analysisError, setAnalysisError] = useState('');
+  const [cameraActive, setCameraActive] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadFallback, setUploadFallback] = useState(false);
   const analysisInFlight = useRef(false);
-  const [scanState, setScanState] = useState<ScanState>('results');
+  const [scanState, setScanState] = useState<ScanState>('idle');
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(scanService.getBackendStatus());
-  const [liveLatencyMs, setLiveLatencyMs] = useState<number>(APP_INFO.defaultLatencyMs);
+  const [liveLatencyMs, setLiveLatencyMs] = useState<number>(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isAnalysing, setIsAnalysing] = useState(false);
@@ -69,6 +73,9 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (analysisInFlight.current) return;
     analysisInFlight.current = true;
     setUploadFallback(false);
+    setAnalysisError('');
+    setItems([]);
+    setScanData(null);
     setIsAnalysing(true);
     setScanState('analysing');
     setImagePreview(file ? URL.createObjectURL(file) : null);
@@ -81,7 +88,7 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, 700);
 
     const timer2 = setTimeout(() => {
-      setAnalysisProgressStage('Estimating recoverable values...');
+      setAnalysisProgressStage(file ? 'Waiting for Gemini detections...' : 'Preparing demo results...');
     }, 1400);
 
     try {
@@ -103,7 +110,10 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setItems(processedItems);
       setLiveLatencyMs(result.latencyMs);
       setBackendStatus(scanService.getBackendStatus());
-    } catch {
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Analysis failed. Please retry.');
+      setItems([]);
+      setScanData(null);
       setScanState('error');
       clearTimeout(timer1);
       clearTimeout(timer2);
@@ -125,6 +135,8 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         scanData,
         imagePreview,
+        cameraActive,
+        setCameraActive,
         uploadFallback,
         items,
         liveLatencyMs,
@@ -141,6 +153,7 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         runAnalysis,
         isAnalysing,
         analysisProgressStage,
+        analysisError,
       }}
     >
       {children}

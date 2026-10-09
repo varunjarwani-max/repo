@@ -12,9 +12,9 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  cameraLive = true,
-  latencyMs = APP_INFO.defaultLatencyMs,
-  itemCount = 12,
+  cameraLive = false,
+  latencyMs = 0,
+  itemCount = 0,
   onToggleEcoBot,
   isEcoBotOpen = false,
 }) => {
@@ -123,7 +123,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}`}
         >
           <Gauge className="w-3 h-3 shrink-0" aria-hidden="true" />
-          <span className="tabular-nums font-semibold">{latencyMs} ms</span>
+          <span className="tabular-nums font-semibold">{latencyMs > 0 ? `${latencyMs} ms` : '—'}</span>
         </div>
 
         {/* Active Items Count Badge */}

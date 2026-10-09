@@ -7,9 +7,11 @@ interface ScanHeroProps {
   onScan: () => void;
   onUpload: () => void;
   isAnalysing: boolean;
+  cameraActive?: boolean;
+  cameraOpening?: boolean;
 }
 
-export default function ScanHero({ onScan, onUpload, isAnalysing }: ScanHeroProps) {
+export default function ScanHero({ onScan, onUpload, isAnalysing, cameraActive = false, cameraOpening = false }: ScanHeroProps) {
   const { backendStatus } = useScanContext();
   const [paused, setPaused] = useState(false);
   const [showArchitecture, setShowArchitecture] = useState(false);
@@ -20,7 +22,7 @@ export default function ScanHero({ onScan, onUpload, isAnalysing }: ScanHeroProp
         <h1>Waste is only waste.<br /><span>Until you see its potential.</span></h1>
         <p>Turn a pile of waste into a plan. Identify materials, flag hazards, and discover what deserves a second life.</p>
         <div className="hero-actions">
-          <button className="eco-button primary" onClick={onScan} disabled={isAnalysing}><ScanLine size={16} />{isAnalysing ? 'Analysing sample…' : 'Start a demo scan'}<ArrowRight size={15} /></button>
+          <button className="eco-button primary" onClick={onScan} disabled={isAnalysing || cameraOpening}><ScanLine size={16} />{isAnalysing ? 'Analysing frame…' : cameraOpening ? 'Opening camera…' : cameraActive ? 'Capture & analyse' : 'Scan with camera'}<ArrowRight size={15} /></button>
           <button className="eco-button secondary" onClick={onUpload} disabled={isAnalysing}>Upload a photo <ArrowUpRight size={16} /></button>
         </div>
         <div className="hero-footnote"><Leaf size={13} /> Built for a more circular world <span>·</span> Environmental Hacks 2026</div>
@@ -44,10 +46,10 @@ export default function ScanHero({ onScan, onUpload, isAnalysing }: ScanHeroProp
         <button className="motion-toggle" onClick={() => setPaused(!paused)} aria-label={paused ? 'Play 3D animation' : 'Pause 3D animation'}>{paused ? <Play size={12} /> : <Pause size={12} />}</button>
       </div>
       <div className="cloud-strip">
-        <span><Cloud size={15} /><strong>Your AWS building block</strong><span className="cloud-divider">/</span> Amazon Bedrock + Nova image understanding <span className="proposed-pill">{backendStatus === 'connected' ? HONESTY_STRINGS.liveTag : 'Prepared · demo mode'}</span></span>
+        <span><Cloud size={15} /><strong>Gemini image understanding</strong><span className="cloud-divider">/</span> Server-side frame analysis <span className="proposed-pill">{backendStatus === 'connected' ? HONESTY_STRINGS.liveTag : 'Ready for capture'}</span></span>
         <button onClick={() => setShowArchitecture(!showArchitecture)} aria-expanded={showArchitecture}>Explore architecture <ArrowUpRight size={14} /></button>
       </div>
-      {showArchitecture && <div className="architecture-details"><div><strong>Photo → API Gateway → Lambda → Amazon Bedrock</strong><p>Use Amazon Nova Lite or Pro to classify visible waste and return bounding boxes. Validate the JSON in Lambda, keep uploaded images private in S3, and retain a human-review step for hazardous items. Deploy this Vite frontend with AWS Amplify Hosting.</p><p>AWS deployment code is included. Only a successful uploaded-photo scan shows Live backend; sample scans remain demo data. Image-based estimates need validation before operational use.</p></div><a href="https://docs.aws.amazon.com/nova/latest/userguide/modalities-image.html" target="_blank" rel="noreferrer">AWS image understanding docs <ExternalLink size={14} /></a></div>}
+      {showArchitecture && <div className="architecture-details"><div><strong>Camera frame → server endpoint → Gemini → validated detections</strong><p>Only a captured frame or uploaded photo is sent to Gemini. The API key stays on the server. Results include estimated boxes, materials and sorting guidance; no video is continuously streamed to the model.</p><p>Add GEMINI_API_KEY in project environment variables. Images and scans are not saved to a database. Robot API exports the current results, never hardware commands. The older AWS backend remains optional via VITE_API_URL.</p></div><a href="https://ai.google.dev/gemini-api/docs/image-understanding" target="_blank" rel="noreferrer">Gemini image understanding docs <ExternalLink size={14} /></a></div>}
     </section>
   );
 }

@@ -15,7 +15,7 @@ import AboutPage from './pages/AboutPage';
 
 const AppContent: React.FC = () => {
   const [isEcoBotOpen, setIsEcoBotOpen] = useState(false);
-  const { items, liveLatencyMs, scanData } = useScanContext();
+  const { items, liveLatencyMs, scanData, cameraActive } = useScanContext();
 
   const toggleEcoBot = () => {
     setIsEcoBotOpen((prev) => !prev);
@@ -25,8 +25,8 @@ const AppContent: React.FC = () => {
     <div className="eco-app min-h-screen text-slate-100 flex flex-col font-sans">
       {/* Sticky Header */}
       <Header
-        cameraLive={false}
-        latencyMs={liveLatencyMs}
+        cameraLive={cameraActive}
+        latencyMs={scanData ? liveLatencyMs : 0}
         itemCount={items.length}
         isEcoBotOpen={isEcoBotOpen}
         onToggleEcoBot={toggleEcoBot}

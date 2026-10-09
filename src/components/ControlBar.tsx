@@ -4,6 +4,9 @@ import { ScanState } from '../types';
 
 interface ControlBarProps {
   scanState: ScanState;
+  cameraActive?: boolean;
+  cameraOpening?: boolean;
+  onStopCamera?: () => void;
   showMasks: boolean;
   showGraspPoints: boolean;
   confidenceThreshold: number;
@@ -17,6 +20,9 @@ interface ControlBarProps {
 
 export const ControlBar: React.FC<ControlBarProps> = ({
   scanState,
+  cameraActive = false,
+  cameraOpening = false,
+  onStopCamera,
   showMasks,
   showGraspPoints,
   confidenceThreshold,
@@ -52,14 +58,15 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         {/* Primary Action: Capture and Analyse */}
         <button
           type="button"
-          disabled={isAnalysing}
+          disabled={isAnalysing || cameraOpening}
           onClick={onCaptureAndAnalyse}
           className="px-4 py-2 rounded-card bg-accent hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-sm-14 flex items-center gap-2 transition-colors cursor-pointer"
         >
           <Camera className="w-4 h-4 text-slate-950" />
-          <span>{isAnalysing ? 'Analysing…' : 'Analyse sample'}</span>
+          <span>{isAnalysing ? 'Analysing…' : cameraOpening ? 'Opening camera…' : cameraActive ? 'Capture & analyse' : 'Open camera'}</span>
         </button>
 
+        {cameraActive && <button type="button" onClick={onStopCamera} className="px-3 py-2 rounded-card border border-border text-sm text-muted hover:text-text">Stop camera</button>}
         {/* Secondary: Upload Photo */}
         <button
           type="button"

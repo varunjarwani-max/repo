@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sliders, Check, Layers, ChevronUp } from 'lucide-react';
-import { HONESTY_STRINGS, APP_INFO } from '../lib/constants';
+import { HONESTY_STRINGS } from '../lib/constants';
 import { useScanContext } from '../context/ScanContext';
 import { ScanState } from '../types';
 
@@ -11,11 +11,11 @@ interface FooterBarProps {
 }
 
 export const FooterBar: React.FC<FooterBarProps> = ({
-  scanId = APP_INFO.defaultScanId,
-  timestamp = '2026-10-09 05:28:14 UTC',
-  modelVersion = HONESTY_STRINGS.modelVersion,
+  scanId = '—',
+  timestamp = 'No scan yet',
+  modelVersion = 'Gemini · awaiting scan',
 }) => {
-  const { scanState, setScanState, loadDemoPile } = useScanContext();
+  const { scanState, setScanState, loadDemoPile, scanData } = useScanContext();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -35,7 +35,7 @@ export const FooterBar: React.FC<FooterBarProps> = ({
   }, [popoverOpen]);
 
   const scanStates: { key: ScanState; label: string; color: string }[] = [
-    { key: 'results', label: 'Results (Default)', color: 'text-emerald-400' },
+    { key: 'results', label: 'Results', color: 'text-emerald-400' },
     { key: 'analysing', label: 'Analysing (Sweeping)', color: 'text-sky-400' },
     { key: 'idle', label: 'Idle Viewfinder', color: 'text-slate-300' },
     { key: 'low_confidence', label: 'Low Confidence', color: 'text-amber-400' },
@@ -57,7 +57,7 @@ export const FooterBar: React.FC<FooterBarProps> = ({
       {/* Right: Demo Controls Popover & Notice */}
       <div className="shrink-0 flex items-center gap-2 relative" ref={popoverRef}>
         {/* Demo Controls Popover Trigger */}
-        <button
+        {scanData?.source === 'demo' && <button
           type="button"
           onClick={() => setPopoverOpen((prev) => !prev)}
           aria-label="Toggle demo state controls popover"
@@ -71,10 +71,10 @@ export const FooterBar: React.FC<FooterBarProps> = ({
           <Sliders className="w-3 h-3 text-emerald-400" />
           <span>Demo controls</span>
           <ChevronUp className={`w-3 h-3 transition-transform ${popoverOpen ? 'rotate-180' : ''}`} />
-        </button>
+        </button>}
 
         {/* Demo Controls Floating Menu */}
-        {popoverOpen && (
+        {popoverOpen && scanData?.source === 'demo' && (
           <div className="absolute bottom-9 right-0 w-64 bg-slate-900 border border-slate-700 rounded-xl p-3 shadow-2xl z-50 flex flex-col gap-2 font-sans text-xs">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="font-semibold text-white text-[11px] font-mono flex items-center gap-1.5">

@@ -17,7 +17,7 @@ import TrendCharts from '../components/TrendCharts';
 
 export const SitesPage: React.FC = () => {
   const navigate = useNavigate();
-  const { items } = useScanContext();
+  const { items, scanData } = useScanContext();
 
   const [sites] = useState<Site[]>(MOCK_SITES);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('SITE-YARD-A');
@@ -60,7 +60,7 @@ export const SitesPage: React.FC = () => {
         const lastIdx = historyCopy.length - 1;
         const updatedPoint: SiteTrendPoint = {
           ...historyCopy[lastIdx],
-          date: 'Oct 09 (Live)',
+          date: 'Current demo',
           recoverableShare: currentScanStats.recoverableShare,
           recyclablePct: currentScanStats.recyclablePct,
           organicPct: currentScanStats.organicPct,
@@ -90,6 +90,14 @@ export const SitesPage: React.FC = () => {
   const compareSite = dynamicSites.find((s) => s.id === compareSiteId) || dynamicSites[1];
 
   const isEmptySite = selectedSite.scansCount === 0 || selectedSite.trendHistory.length === 0;
+
+  if (scanData?.source !== 'demo') return <section className="mx-auto my-8 w-full max-w-2xl rounded-2xl border border-border bg-surface p-6 space-y-4">
+    <h1 className="text-xl font-semibold text-text">Current session · no facility history</h1>
+    <p className="text-sm text-muted">No facilities, historical scans, or trend lines have been invented. Scans currently live only in this session and are cleared on refresh.</p>
+    {scanData && <dl className="grid grid-cols-2 gap-4 text-sm"><div><dt className="text-muted">Captured at</dt><dd className="text-text">{new Date(scanData.timestamp).toLocaleString()}</dd></div><div><dt className="text-muted">Visible items</dt><dd className="text-text">{items.length}</dd></div><div><dt className="text-muted">Hazard flags</dt><dd className="text-text">{currentScanStats.hazardousCount}</dd></div><div><dt className="text-muted">Source</dt><dd className="text-text">{scanData.modelVersion}</dd></div></dl>}
+    <p className="text-xs text-muted">Facility tracking requires verified facility details and a connected database. This page does not claim a live facility feed.</p>
+    <button type="button" onClick={() => navigate('/scan')} className="eco-button primary">Open scanner</button>
+  </section>;
 
   return (
     <div className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -157,7 +165,7 @@ export const SitesPage: React.FC = () => {
             <span className="font-mono text-xs uppercase tracking-wider text-slate-400 font-semibold">
               Monitored Facilities ({dynamicSites.length})
             </span>
-            <span className="text-[11px] font-mono text-emerald-400">Live Telemetry</span>
+            <span className="text-[11px] font-mono text-emerald-400">Demo fixtures</span>
           </div>
 
           <div className="space-y-2">

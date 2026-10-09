@@ -5,12 +5,13 @@ import { HONESTY_STRINGS } from '../lib/constants';
 import { toRobotJson, ROBOT_SCHEMA_DEFINITIONS } from '../lib/robotFormat';
 import JsonViewer from '../components/JsonViewer';
 import PileSceneSvg from '../components/PileSceneSvg';
+import EmptyScanState from '../components/EmptyScanState';
 
 export const RobotApiPage: React.FC = () => {
   const { items, scanData, imagePreview, backendStatus } = useScanContext();
 
   const [activeTab, setActiveTab] = useState<'json' | 'schema'>('json');
-  const [selectedItemId, setSelectedItemId] = useState<string>(items[0]?.id || 'REC-0001');
+  const [selectedItemId, setSelectedItemId] = useState<string>(items[0]?.id || '');
 
   // Dynamically generate robot JSON payload using toRobotJson from active ScanContext items
   const robotEnvelope = useMemo(() => {
@@ -41,6 +42,8 @@ export const RobotApiPage: React.FC = () => {
     ? activeItem.polygon.map(([px, py]) => `${px * 1000},${py * 625}`).join(' ')
     : '';
 
+  if (!scanData) return <EmptyScanState title="No detections to export" description="Scan a camera frame or upload a photo first. Robot API will export that scan as JSON only; it does not control physical hardware." />;
+
   return (
     <div className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Page Header */}
@@ -48,10 +51,10 @@ export const RobotApiPage: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
             <Cpu className="w-5 h-5 text-emerald-400" />
-            <span>Robot API & Actuation Telemetry</span>
+            <span>Robot API · Detection Export</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Machine-readable JSON schema, boundary polygons, and grasp centroid vectors for robotic pick-and-place end effectors.
+            Export the current captured-frame detections as JSON. Boxes are model estimates; polygons and centroids are derived previews, not calibrated robot commands.
           </p>
         </div>
 
@@ -175,7 +178,7 @@ export const RobotApiPage: React.FC = () => {
           {/* 16:10 Canvas with Synthetic Pile Scene and Robot Overlay */}
           <div className="relative w-full aspect-[16/10] bg-slate-950 rounded-xl border border-slate-700/80 overflow-hidden shadow-2xl" style={imagePreview && scanData ? { aspectRatio: scanData.imageWidth / scanData.imageHeight } : undefined}>
             {/* Background Synthetic Pile */}
-            {imagePreview ? <img src={imagePreview} alt="Current uploaded waste photo" className="w-full h-full object-contain" /> : <PileSceneSvg className="opacity-60" />}
+            {imagePreview ? <img src={imagePreview} alt="Current captured or uploaded waste frame" className="w-full h-full object-contain" /> : scanData.source === 'demo' ? <PileSceneSvg className="opacity-60" /> : <p className="p-4 text-sm text-muted">Frame preview unavailable.</p>}
 
             {/* SVG Actuation Overlay */}
             {activeItem && (

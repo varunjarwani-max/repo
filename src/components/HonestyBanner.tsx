@@ -5,9 +5,9 @@ import { Link, useLocation } from 'react-router-dom';
 import { useScanContext } from '../context/ScanContext';
 
 export const HonestyBanner: React.FC = () => {
-  const { backendStatus } = useScanContext();
+  const { backendStatus, scanData } = useScanContext();
   const { pathname } = useLocation();
-  const sourceLabel = pathname === '/sites' ? HONESTY_STRINGS.demoTag : backendStatus === 'connected' ? HONESTY_STRINGS.liveTag : backendStatus === 'fallback' ? HONESTY_STRINGS.fallbackTag : HONESTY_STRINGS.demoTag;
+  const sourceLabel = pathname === '/sites' && scanData?.source !== 'demo' ? 'No facility history' : scanData?.source === 'live' ? HONESTY_STRINGS.liveTag : scanData?.source === 'demo' ? HONESTY_STRINGS.demoTag : backendStatus === 'fallback' ? 'Analysis unavailable' : 'Awaiting scan';
   return (
     <aside
       aria-label="System operational disclaimer"

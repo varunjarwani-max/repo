@@ -110,7 +110,7 @@ function generateMockChatReply(query: string, items: Item[]): string {
         .join('\n');
       return `Top valuable recoverable materials ranked by secondary market midpoint:\n\n${topList}\n\nClean, uncontaminated non-ferrous metals and clean PET plastics command the highest scrap prices.`;
     }
-    return 'No items with recoverable scrap value are currently identified in this batch.';
+    return 'Recovery value is not estimated for this scan. No verified market prices are available; this does not mean the materials have no value.';
   }
 
   if (q.includes('summar') || q.includes('overview') || q.includes('report') || q.includes('total')) {
@@ -149,8 +149,8 @@ function generateMockChatReply(query: string, items: Item[]): string {
 
 /**
  * Service providing scan and computer vision segmentation data.
- * Pure service layer: handles network requests to backend when VITE_API_URL is configured,
- * with graceful fallback to demo mock data on network errors or invalid response shape.
+ * Uses the same-origin Gemini endpoint by default, or the optional VITE_API_URL backend.
+ * Live failures are surfaced; demo data is returned only for explicit sample scans.
  */
 export const scanService: ScanService = {
   getBackendStatus(): BackendStatus {
@@ -159,11 +159,42 @@ export const scanService: ScanService = {
 
   /**
    * Performs vision segmentation and material classification.
-   * Uploaded photos use /upload, a private S3 POST, then /scan.
-   * Falls back to labelled demo data on failures or invalid payloads.
+   * Photos and camera snapshots use Gemini unless an external API is configured.
+   * Returns only validated detections and never substitutes demo data on errors.
    */
   async analyse(file: File | null = null, options: AnalyseOptions = {}): Promise<ScanResult> {
     const { sceneType = 'full', delayMs = 2000, forceError = false, demoOnly = false } = options;
+
+    if (file && !API_URL && !forceError && !demoOnly) {
+      try {
+        const prepared = await preparePhotoUpload(file);
+        const image = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = () => reject(new Error('Could not read this photo.'));
+          reader.readAsDataURL(prepared.file);
+        });
+        const response = await fetch('/api/analyse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image, imageWidth: prepared.width, imageHeight: prepared.height }),
+          signal: AbortSignal.timeout(55000),
+        });
+        const data: unknown = await response.json();
+        if (!response.ok) {
+          const message = data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' ? data.error : 'Image analysis failed.';
+          throw new Error(message);
+        }
+        if (!isValidScanResult(data)) throw new Error('Gemini returned an invalid scan. Please retry.');
+        currentBackendStatus = 'connected';
+        return { ...data, items: data.items.map(item => ({
+          ...item, targetBin: BIN_MAPPING[item.category].binName, cropUrl: undefined, userConfirmed: false,
+        })) };
+      } catch (error) {
+        currentBackendStatus = 'fallback';
+        throw error instanceof Error ? error : new Error('Cannot reach Gemini. Check your connection and retry.');
+      }
+    }
 
     if (API_URL && file && !forceError && !demoOnly) {
       try {
@@ -201,8 +232,9 @@ export const scanService: ScanService = {
           isHazardous: item.isHazardous || item.category === 'hazardous',
           targetBin: BIN_MAPPING[item.isHazardous ? 'hazardous' : item.category].binName,
         })) };
-      } catch {
+      } catch (error) {
         currentBackendStatus = 'fallback';
+        throw error instanceof Error ? error : new Error('The configured image analysis backend is unavailable.');
       }
     } else {
       currentBackendStatus = file ? 'fallback' : 'mock';

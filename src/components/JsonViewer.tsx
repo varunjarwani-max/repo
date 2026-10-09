@@ -21,7 +21,7 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({
   const activeSingleItem =
     envelope.items.find((i) => i.id === selectedItemId) || envelope.items[0];
 
-  const currentPayload = viewScope === 'full' ? envelope : activeSingleItem;
+  const currentPayload = viewScope === 'full' ? envelope : activeSingleItem ?? null;
   const jsonString = JSON.stringify(currentPayload, null, 2);
   const jsonLines = jsonString.split('\n');
 
@@ -73,7 +73,7 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({
 
     for (let i = 0; i < jsonLines.length; i++) {
       const line = jsonLines[i];
-      const idMatch = line.match(/"id":\s*"(REC-\d{4})"/);
+      const idMatch = line.match(/"id":\s*"([^"\\]+)"/);
 
       if (idMatch) {
         const id = idMatch[1];

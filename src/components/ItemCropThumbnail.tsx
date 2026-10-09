@@ -28,6 +28,8 @@ export const ItemCropThumbnail: React.FC<ItemCropThumbnailProps> = ({
     );
   }
 
+  if (!item.id.startsWith('REC-')) return <div style={{ width: size, height: size }} className={`rounded-card bg-surface-2 border border-border shrink-0 flex items-center justify-center text-muted text-xs ${className}`} aria-label={`No crop available for ${item.label}`}>#{item.itemNumber}</div>;
+
   // Calculate viewBox in 1000x625 space with 8% padding
   const rawX = item.bbox.x * 1000;
   const rawY = item.bbox.y * 625;

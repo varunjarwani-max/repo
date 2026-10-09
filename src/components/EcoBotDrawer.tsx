@@ -39,7 +39,7 @@ export const EcoBotDrawer: React.FC<EcoBotDrawerProps> = ({
           sender: 'bot',
           text: `Hello! I can explain the ${items.length} items in the current scan using local, rule-based replies. I do not make a live AI model call. What would you like to know?`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          sourceChip: 'EcoBot v0.9 (demo)',
+          sourceChip: 'Local rule-based assistant',
         },
       ]);
     }

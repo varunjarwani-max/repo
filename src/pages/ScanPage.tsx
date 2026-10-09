@@ -9,6 +9,7 @@ import ControlBar from '../components/ControlBar';
 import ScanResultsList from '../components/ScanResultsList';
 import ScanHero from '../components/ScanHero';
 import ScanOverview from '../components/ScanOverview';
+import { useCamera } from '../hooks/useCamera';
 
 export const ScanPage: React.FC = () => {
   const {
@@ -27,6 +28,8 @@ export const ScanPage: React.FC = () => {
     backendStatus,
     imagePreview,
     uploadFallback,
+    analysisError,
+    setCameraActive,
   } = useScanContext();
 
   // Interactive Viewfinder Overlays & Toggles
@@ -37,11 +40,33 @@ export const ScanPage: React.FC = () => {
   // Category Filter State (shared between Viewfinder legend & ResultsPanel chips)
   const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
 
-  const currentEffectiveScanState: ScanState = isAnalysing ? 'analysing' : scanState;
+  const camera = useCamera(setCameraActive);
+  const lastFrame = useRef<File | null>(null);
+  const captureInFlight = useRef(false);
+  const handleCameraScan = async () => {
+    if (isAnalysing || captureInFlight.current) return;
+    if (!camera.stream) { await camera.start(); return; }
+    captureInFlight.current = true;
+    try {
+      const frame = await camera.capture();
+      if (!frame) return;
+      lastFrame.current = frame;
+      camera.stop();
+      setUploadError('');
+      await runAnalysis('full', frame);
+    } finally { captureInFlight.current = false; }
+  };
+  const handleRetry = () => {
+    if (lastFrame.current) void runAnalysis('full', lastFrame.current);
+    else void camera.start();
+  };
+  const currentEffectiveScanState: ScanState = isAnalysing ? 'analysing' : camera.stream ? 'idle' : scanState;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState('');
   const handleLoadDemoPile = () => {
+    camera.stop();
+    lastFrame.current = null;
     setUploadError('');
     void runAnalysis('full');
   };
@@ -54,6 +79,8 @@ export const ScanPage: React.FC = () => {
       setUploadError('Choose a JPG, PNG, or WebP image smaller than 10 MB.');
       return;
     }
+    camera.stop();
+    lastFrame.current = file;
     setUploadError('');
     void runAnalysis('full', file);
   };
@@ -100,7 +127,10 @@ export const ScanPage: React.FC = () => {
   return (
     <div className="scan-workspace flex-1 w-full mx-auto flex flex-col relative">
       <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileSelected} aria-label="Upload waste photo" className="sr-only" disabled={isAnalysing} />
-      <ScanHero onScan={handleLoadDemoPile} onUpload={handleUploadPhoto} isAnalysing={isAnalysing} />
+      <ScanHero onScan={() => void handleCameraScan()} onUpload={handleUploadPhoto} isAnalysing={isAnalysing} cameraActive={Boolean(camera.stream)} cameraOpening={camera.isOpening} />
+      <p className="text-xs text-muted">Camera video stays in your browser. Capture &amp; analyse sends one frame to Gemini; results refer to that frozen frame. No physical robot is controlled.</p>
+      {camera.error && <p role="alert" className="upload-notice">{camera.error}</p>}
+      {analysisError && <p role="alert" className="upload-notice">{analysisError}</p>}
       <ScanOverview items={items} />
       {uploadError && <p role="alert" className="text-sm text-red-400">{uploadError}</p>}
       {uploadFallback && <p role="status" className="upload-notice">{HONESTY_STRINGS.uploadFallback}</p>}
@@ -155,12 +185,12 @@ export const ScanPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-slate-300 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-emerald-400" />
-            <span>Model: {scanData?.modelVersion || HONESTY_STRINGS.modelVersion}</span>
+            <span>Model: {scanData?.modelVersion || 'Gemini · awaiting scan'}</span>
           </span>
           {backendStatus === 'fallback' ? (
             <span className="font-mono text-xs text-amber-300 px-2.5 py-1 rounded-full bg-amber-950/60 border border-amber-500/40 flex items-center gap-1.5 shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span>Using demo data (backend unreachable)</span>
+              <span>Analysis unavailable · no detections</span>
             </span>
           ) : backendStatus === 'connected' ? (
             <span className="font-mono text-xs text-emerald-300 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 flex items-center gap-1.5">
@@ -169,7 +199,7 @@ export const ScanPage: React.FC = () => {
             </span>
           ) : (
             <span className="font-mono text-xs text-slate-400 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800">
-              {HONESTY_STRINGS.demoTag}
+              {scanData?.source === 'demo' ? HONESTY_STRINGS.demoTag : 'Awaiting capture'}
             </span>
           )}
         </div>
@@ -182,10 +212,13 @@ export const ScanPage: React.FC = () => {
           aria-label="Computer vision viewfinder workspace"
           className="scanner-panel lg:col-span-7 flex flex-col gap-3.5"
         >
-          <div className="panel-heading"><span><Camera size={15} /> Material viewfinder</span><span className="font-mono text-[10px] text-muted">{imagePreview ? 'UPLOADED PHOTO' : 'SAMPLE PILE / 01'}</span></div>
+          <div className="panel-heading"><span><Camera size={15} /> Material viewfinder</span><span className="font-mono text-[10px] text-muted">{camera.stream ? 'LIVE CAMERA PREVIEW' : imagePreview ? 'CAPTURED / UPLOADED FRAME' : scanData?.source === 'demo' ? 'DEMO PILE' : 'AWAITING CAPTURE'}</span></div>
           <Viewfinder
             scanState={currentEffectiveScanState}
-            imagePreview={imagePreview}
+            cameraActive={Boolean(camera.stream)}
+            videoRef={camera.videoRef}
+            analysisError={analysisError}
+            imagePreview={camera.stream ? null : imagePreview}
             imageAspectRatio={imagePreview && scanData ? scanData.imageWidth / scanData.imageHeight : undefined}
             liveMode={backendStatus === 'connected'}
             items={isAnalysing ? [] : items}
@@ -199,7 +232,7 @@ export const ScanPage: React.FC = () => {
             onItemHover={setHoveredItemId}
             onItemSelect={handleItemSelect}
             onCategoryFilterChange={setSelectedCategory}
-            onRetry={() => runAnalysis('full')}
+            onRetry={handleRetry}
             onUploadClick={handleUploadPhoto}
           />
 
@@ -208,7 +241,10 @@ export const ScanPage: React.FC = () => {
             showMasks={showMasks}
             showGraspPoints={showGraspPoints}
             confidenceThreshold={confidenceThreshold}
-            onCaptureAndAnalyse={() => runAnalysis('full')}
+            onCaptureAndAnalyse={() => void handleCameraScan()}
+            cameraActive={Boolean(camera.stream)}
+            cameraOpening={camera.isOpening}
+            onStopCamera={camera.stop}
             onUploadPhoto={handleUploadPhoto}
             onLoadDemoPile={handleLoadDemoPile}
 
@@ -223,7 +259,7 @@ export const ScanPage: React.FC = () => {
         <section aria-label="Segmentation results list" className="lg:col-span-5 flex flex-col h-full">
           <ScanResultsList
             isAnalysing={isAnalysing}
-            sourceLabel={backendStatus === 'connected' ? HONESTY_STRINGS.liveTag : HONESTY_STRINGS.demoTag}
+            sourceLabel={scanData?.source === 'live' ? HONESTY_STRINGS.liveTag : scanData?.source === 'demo' ? HONESTY_STRINGS.demoTag : 'No scan yet'}
             items={items}
             activeItemId={activeItemId}
             selectedCategory={selectedCategory}

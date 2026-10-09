@@ -21,6 +21,7 @@ import PickList from '../components/PickList';
 import HazardPanel from '../components/HazardPanel';
 import { useCountUp } from '../hooks/useCountUp';
 import { downloadCsv } from '../lib/csvExport';
+import EmptyScanState from '../components/EmptyScanState';
 
 export const AuditPage: React.FC = () => {
   const { scanData, items, setSelectedItemId, backendStatus } = useScanContext();
@@ -79,6 +80,8 @@ export const AuditPage: React.FC = () => {
       maxValueInr += item.estimatedValueInr.max;
     }
   });
+
+  const hasValueEstimate = items.some(item => item.estimatedValueInr !== null);
 
   // Dynamic count-up values (tabular figures, no jitter)
   const countItems = useCountUp(totalCount, 1200, 0, revealed);
@@ -178,7 +181,7 @@ Timestamp: ${scanData?.timestamp || '2026-10-09 05:28:14 UTC'}
 Total Items Detected: ${totalCount}
 Total Estimated Mass: ${totalWeightGrams} g
 Estimated Recoverable Share: ${recoverableWeightShare.toFixed(1)}% by estimated weight (${recyclableWeight} g est.)
-Estimated Value: ₹${minValueInr.toFixed(1)} - ₹${maxValueInr.toFixed(1)} INR
+Estimated Value: ${hasValueEstimate ? `₹${minValueInr.toFixed(1)} - ₹${maxValueInr.toFixed(1)} INR` : 'Not estimated; no market price data'}
 Hazardous Units: ${hazardousItems.length} flagged (immediate isolation required)
 Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reject): ${(contaminationRatio * 100).toFixed(1)}%
 --------------------------------------------------
@@ -194,6 +197,8 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
       setCopyError('Clipboard is unavailable. Export CSV instead.');
     }
   };
+
+  if (!scanData) return <EmptyScanState title="No audit yet" description="Capture a camera frame or upload a photo first. Audit totals and exports will use the actual detections, not sample data." />;
 
   return (
     <div
@@ -309,7 +314,7 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
           </div>
           <div className="mt-2 flex items-baseline gap-1">
             <span className="text-xl sm:text-2xl font-mono font-bold text-accent tabular-nums">
-              ₹{countValMin.toFixed(1)} - ₹{countValMax.toFixed(1)}
+                  {hasValueEstimate ? `₹${countValMin.toFixed(1)} - ₹${countValMax.toFixed(1)}` : 'Not estimated'}
             </span>
           </div>
           <div className="mt-0.5 text-[11px] text-muted font-mono">
