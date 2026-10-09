@@ -31,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
     { to: '/scan', label: 'Workspace' },
     { to: '/audit', label: 'Audit report' },
     { to: '/sites', label: 'Site insights' },
+    { to: '/developers', label: 'Developer API' },
   ];
 
   return (

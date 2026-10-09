@@ -12,6 +12,7 @@ import HomePage from './pages/HomePage';
 import DevTokensPage from './pages/DevTokensPage';
 import EcoBotDrawer from './components/EcoBotDrawer';
 import AboutPage from './pages/AboutPage';
+import DeveloperPage from './pages/DeveloperPage';
 
 const AppContent: React.FC = () => {
   const [isEcoBotOpen, setIsEcoBotOpen] = useState(false);
@@ -45,6 +46,7 @@ const AppContent: React.FC = () => {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/sites" element={<SitesPage />} />
           <Route path="/dev/tokens" element={<DevTokensPage />} />
+          <Route path="/developers" element={<DeveloperPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

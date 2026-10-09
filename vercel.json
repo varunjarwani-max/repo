@@ -1,8 +1,13 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": { "api/analyse.mjs": { "maxDuration": 60 } },
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "functions": { "api/analyse.mjs": { "maxDuration": 60 }, "api/developer.mjs": { "maxDuration": 60 } },
+  "rewrites": [
+    { "source": "/api/keys", "destination": "/api/developer" },
+    { "source": "/api/keys/:path*", "destination": "/api/developer" },
+    { "source": "/api/v1/classify-external", "destination": "/api/developer" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
   "headers": [{ "source": "/(.*)", "headers": [
     { "key": "X-Content-Type-Options", "value": "nosniff" },
     { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
