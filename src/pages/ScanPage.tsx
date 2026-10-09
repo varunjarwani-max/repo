@@ -16,6 +16,7 @@ export const ScanPage: React.FC = () => {
     items,
     liveLatencyMs,
     activeItemId,
+    selectedItemId,
     setHoveredItemId,
     setSelectedItemId,
     updateItemCategory,
@@ -25,6 +26,7 @@ export const ScanPage: React.FC = () => {
     scanState,
     backendStatus,
     imagePreview,
+    uploadFallback,
   } = useScanContext();
 
   // Interactive Viewfinder Overlays & Toggles
@@ -58,7 +60,7 @@ export const ScanPage: React.FC = () => {
 
   // Selection toggle (pins item)
   const handleItemSelect = (id: string) => {
-    setSelectedItemId(activeItemId === id ? null : id);
+    setSelectedItemId(selectedItemId === id ? null : id);
   };
 
   // Animation 3: Hazard Radar toast & vignette trigger
@@ -101,7 +103,8 @@ export const ScanPage: React.FC = () => {
       <ScanHero onScan={handleLoadDemoPile} onUpload={handleUploadPhoto} isAnalysing={isAnalysing} />
       <ScanOverview items={items} />
       {uploadError && <p role="alert" className="text-sm text-red-400">{uploadError}</p>}
-      {imagePreview && backendStatus !== 'connected' && <p role="status" className="upload-notice">Photo preview loaded. No image-analysis backend is connected; results below are the sample pile, not detections from your photo.</p>}
+      {uploadFallback && <p role="status" className="upload-notice">{HONESTY_STRINGS.uploadFallback}</p>}
+      {hazCount > 0 && !isAnalysing && <aside role="alert" className="flex items-start gap-3 rounded-xl border border-red-500/50 bg-red-950/30 p-3 text-sm text-red-200"><TriangleAlert className="shrink-0 text-red-400" size={20} /><div><strong>{hazCount} hazardous items flagged</strong><p>Do not place these in normal bins. Review the flagged items and follow local hazardous-waste guidance.</p></div></aside>}
       {/* Hazard Radar Flash Vignette (400ms single flash) */}
       {showHazardVignette && (
         <div
@@ -183,7 +186,9 @@ export const ScanPage: React.FC = () => {
           <Viewfinder
             scanState={currentEffectiveScanState}
             imagePreview={imagePreview}
-            items={imagePreview && backendStatus !== 'connected' ? [] : items}
+            imageAspectRatio={imagePreview && scanData ? scanData.imageWidth / scanData.imageHeight : undefined}
+            liveMode={backendStatus === 'connected'}
+            items={isAnalysing ? [] : items}
             activeItemId={activeItemId}
             selectedCategory={selectedCategory}
             confidenceThreshold={confidenceThreshold}
@@ -211,11 +216,14 @@ export const ScanPage: React.FC = () => {
             onToggleGraspPoints={() => setShowGraspPoints((prev) => !prev)}
             onConfidenceThresholdChange={setConfidenceThreshold}
           />
+          <p className="text-xs text-muted">{HONESTY_STRINGS.confidenceNotice} {HONESTY_STRINGS.geometryNotice}</p>
         </section>
 
         {/* Right Column: Scan Results List (5 cols on lg / ~42%) */}
         <section aria-label="Segmentation results list" className="lg:col-span-5 flex flex-col h-full">
           <ScanResultsList
+            isAnalysing={isAnalysing}
+            sourceLabel={backendStatus === 'connected' ? HONESTY_STRINGS.liveTag : HONESTY_STRINGS.demoTag}
             items={items}
             activeItemId={activeItemId}
             selectedCategory={selectedCategory}

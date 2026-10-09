@@ -25,13 +25,13 @@ export const HazardPanel: React.FC<HazardPanelProps> = ({ hazardousItems }) => {
               <span>Hazard Containment & Safety Directives</span>
             </h2>
             <p className="text-xs text-red-300/80">
-              Mandatory segregation required prior to mechanical compaction or baling.
+              Potential hazards — review item guidance and local handling rules before sorting.
             </p>
           </div>
         </div>
 
         <span className="font-mono text-xs font-bold px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-300">
-          {hazardousItems.length} {hazardousItems.length === 1 ? 'Item' : 'Items'} ({totalHazWeight} g) Flagged
+          {hazardousItems.length} {hazardousItems.length === 1 ? 'Item' : 'Items'} ({totalHazWeight} g est.) Flagged
         </span>
       </div>
 

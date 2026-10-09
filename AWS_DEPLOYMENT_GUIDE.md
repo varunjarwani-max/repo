@@ -1,89 +1,47 @@
-# EcoScan AWS Deployment & Security Guide
+# EcoScan AWS deployment and verification
 
-## 1. Security Architecture (Why the API Key Must Stay on AWS)
+## Status
 
-For hackathon submissions where your GitHub repository is public:
-- **Never put your `GEMINI_API_KEY` into frontend code or `.env` pushed to GitHub.**
-- If committed publicly, Google’s automated secret scanning will detect the key within minutes and revoke it, and competitors or third parties can hijack your quota.
-- `.gitignore` is already configured in this repo to automatically ignore `.env` files.
+The repository contains a working demo frontend and an AWS backend implementation. **It is not proof of deployment.** No AWS account credentials, running API endpoint or Amplify public URL were available during this phase. Offline contract tests replace AWS transport and do not count as real S3 uploads or model invocations.
 
-```
-┌─────────────────────────────────┐
-│ Client Browser (Public Web App) │
-│ - Camera snapshot / photo upload│
-└────────────────┬────────────────┘
-                 │ POST /api/classify (Image base64 only - NO API KEY)
-                 ▼
-┌─────────────────────────────────────────────────────────────┐
-│ AWS Server (EC2 / ECS / App Runner / Lambda)                │
-│ - Reads GEMINI_API_KEY from AWS Environment Variables       │
-│ - Securely calls Google Gemini 1.5 Flash Vision API         │
-└────────────────┬────────────────────────────────────────────┘
-                 │ Secure Server-to-Server HTTPS Request
-                 ▼
-┌─────────────────────────────────┐
-│ Google Gemini 1.5 Flash Vision  │
-│ Returns JSON waste categorization│
-└─────────────────────────────────┘
-```
+## Current architecture
 
----
+1. The browser decodes a JPG, PNG or WebP (input limit 10 MB), resizes it to at most 1568 pixels per side and converts it to JPEG (maximum 3.5 MB).
+2. `POST /upload` returns an expiring, size-bound presigned S3 POST.
+3. The browser uploads the prepared JPEG directly to a private S3 bucket.
+4. `POST /scan` sends only the returned image key. Lambda validates the JPEG and reads its actual dimensions, calls Bedrock Converse with image bytes and validates the model output.
+5. Lambda returns the active TypeScript `ScanResult` format and caches the result privately in S3. The frontend applies its canonical bin mapping and generates local photo crops.
+6. Only a validated successful photo scan enables **Live backend**. Missing configuration, HTTP failures, model failures, malformed output and timeouts restore the illustrated demo pile with an explicit fallback notice.
 
-## 2. Option A: Deploying on AWS EC2 / App Runner / Elastic Beanstalk (Node.js)
+There are no AWS credentials or provider keys in browser code. The existing Gemini/Node legacy files are not used by the active React scan pipeline. This Lambda replaces the old pipe-delimited Gemini response.
 
-1. **Clone your public GitHub repo** onto your AWS EC2 instance:
-   ```bash
-   git clone <YOUR_PUBLIC_REPO_URL>
-   cd AWS-Phase-2
-   ```
+## Deployment resources
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+`template.yaml` defines the private encrypted S3 bucket, HTTPS-only bucket policy, API Gateway HTTP routes, exact-origin CORS, Lambda role, bounded concurrency/throttling and one-day object lifecycle. This is a public hackathon demo endpoint: Origin/CORS checks are **not authentication** and can be spoofed outside a browser. Monitor spend, set an AWS budget alert and disable the API when the demonstration ends. Add real authentication and per-user object ownership before production use. Cached retries avoid repeated calls after a completed result, but simultaneous requests can still duplicate inference.
 
-3. **Set your 3 API keys in the server environment**:
-   You can either create a local `.env` file on the server (which is automatically git-ignored and protected):
-   ```bash
-   cat << 'EOF' > .env
-   PORT=3000
-   GEMINI_API_KEYS=your_key1_here,your_key2_here,your_key3_here
-   EOF
-   ```
-   Or set them individually:
-   ```bash
-   cat << 'EOF' > .env
-   PORT=3000
-   GEMINI_API_KEY_1=your_key1_here
-   GEMINI_API_KEY_2=your_key2_here
-   GEMINI_API_KEY_3=your_key3_here
-   EOF
-   ```
+The Lambda uses the Python runtime's bundled boto3; no npm or Python dependency installation was added. `package_lambda.py` creates `.aws-build/lambda.zip` containing only `lambda_function.py`, the archive referenced by SAM. Generated archives are ignored by Git.
 
-4. **Run with PM2 (Daemon for production)**:
-   ```bash
-   npm install -g pm2
-   pm2 start server.js --name ecoscan
-   ```
-   *Auto-Swap Behavior*: The server starts on Key #1. As soon as Key #1 encounters a rate limit (HTTP 429) or quota exhaustion (`RESOURCE_EXHAUSTED`), it logs `[API Key Limit Reached]`, immediately retries the request using Key #2, and subsequent requests use Key #2. If Key #2 runs out, it smoothly moves to Key #3!
+To deploy from an AWS-enabled development environment, package the handler, then deploy `template.yaml` with AWS SAM using `CAPABILITY_IAM`. Use **us-east-1** and verify that the account can invoke the in-region `amazon.nova-lite-v1:0` vision model. The model is configurable only to the listed allowed value so IAM remains narrowly scoped. Do not deploy until account access and permission to create billable resources are confirmed.
 
----
+### Amplify Console setup
 
-## 3. Option B: Deploying on AWS Lambda (Serverless Python)
+1. Connect the GitHub repository and the desired branch through Amplify Hosting. `amplify.yml` builds the Vite frontend with `npm ci` and publishes `dist`.
+2. Copy the resulting exact HTTPS origin (no path or trailing slash) into the backend's `AllowedOrigin` parameter. Deploy the backend.
+3. Set the backend stack's `ApiUrl` output as **VITE_API_URL** in Amplify's frontend environment variables. This is a public API URL, not a secret. Rebuild the frontend after changing it.
+4. In Amplify **Hosting → Rewrites and redirects**, paste the rules from `amplify-rewrites.json`. These rules preserve static asset requests while serving `/index.html` for SPA routes including `/audit`. Amplify does not read the Netlify-style `public/_redirects` file.
+5. Keep Amplify, Lambda and bucket in the intended AWS region; verify exact-origin CORS from the deployed site rather than from a different preview origin.
 
-If you are using **AWS API Gateway + AWS Lambda**:
-1. Create a Python 3.10+ Lambda function.
-2. Paste the code from [`lambda_function.py`](./lambda_function.py).
-3. In the AWS Lambda Console, navigate to **Configuration** → **Environment variables**:
-   - Key: `GEMINI_API_KEY`
-   - Value: `your_gemini_api_key_here`
-4. Add an API Gateway HTTP/REST trigger with route `POST /api/classify`.
+## Acceptance evidence required before submission
 
----
+- A public Amplify URL loads both `/scan` and a direct fresh visit to `/audit` without a 404.
+- Upload one photo of **real waste**, then see **Live backend**, photo crops and correctly aligned numbered boxes. No fixture or demo scene counts as this test.
+- In S3, confirm a private `uploads/…jpg` object. In Lambda/CloudWatch or Bedrock usage, confirm a successful model invocation; capture the returned scan ID/model version as evidence.
+- Export audit CSV and inspect its source label, estimated weights, value range, hazardous count and item rows. PDF export uses the browser print dialog and Save as PDF.
+- Disable the endpoint temporarily and repeat an upload: the app must show **Demo data — backend unavailable** and the illustrated demo scene, not mock boxes over the real photo.
+- Test at 390px and verify item category/bin text, hazard warnings and the persistent visible-surface notice.
 
-## 4. Local Testing & Verification
+## Explicitly not included in this phase
 
-1. When opening [`index.html`](./index.html) directly without a running backend:
-   - The app uses its local embedded waste database as an offline fallback so you can always demonstrate the UI smoothly.
-2. When running with the backend server (`npm start` with `GEMINI_API_KEY` set):
-   - Real-time snapshots trigger live Google Gemini 1.5 Flash vision classification with sub-second response times.
+DynamoDB history, persisted user corrections, live EcoBot/Bedrock chat, language switching, measured accuracy, comparison, real trend charts and shareable reports. Sites remains labelled demo history. JSON output is untested on robots; live masks and grasp points are derived from boxes. All image-based weights and monetary estimates remain unvalidated.
+
+AWS references: [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html), [Nova Lite model](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-lite.html), [Amplify SPA rewrites](https://docs.aws.amazon.com/amplify/latest/userguide/redirect-rewrite-examples.html).

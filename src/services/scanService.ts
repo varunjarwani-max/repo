@@ -1,6 +1,7 @@
 import { ScanResult, Site, Item } from '../types';
 import { MOCK_SCAN_RESULT, ALL_MOCK_ITEMS, CORE_MOCK_ITEMS, MOCK_SITES } from '../data/mockData';
-import { APP_INFO, HONESTY_STRINGS } from '../lib/constants';
+import { APP_INFO, HONESTY_STRINGS, BIN_MAPPING } from '../lib/constants';
+import { preparePhotoUpload } from '../lib/cropUtils';
 
 export interface AnalyseOptions {
   sceneType?: 'core' | 'full';
@@ -28,7 +29,7 @@ const RAW_API_URL = typeof import.meta !== 'undefined' && import.meta.env
   : '';
 const API_URL = (RAW_API_URL || '').trim().replace(/\/+$/, '');
 
-let currentBackendStatus: BackendStatus = API_URL ? 'connected' : 'mock';
+let currentBackendStatus: BackendStatus = 'mock';
 
 /**
  * Validates whether the returned payload strictly matches the expected ScanResult shape.
@@ -36,19 +37,27 @@ let currentBackendStatus: BackendStatus = API_URL ? 'connected' : 'mock';
 function isValidScanResult(data: unknown): data is ScanResult {
   if (!data || typeof data !== 'object') return false;
   const candidate = data as Partial<ScanResult>;
-  if (typeof candidate.scanId !== 'string') return false;
-  if (!Array.isArray(candidate.items)) return false;
-
+  const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+  const unit = (value: unknown) => finite(value) && value >= 0 && value <= 1;
+  if (candidate.source !== 'live' || typeof candidate.imageKey !== 'string' || !candidate.imageKey) return false;
+  if (![candidate.scanId, candidate.siteId, candidate.siteName, candidate.timestamp, candidate.modelVersion].every(value => typeof value === 'string' && value.length > 0)) return false;
+  if (!finite(candidate.imageWidth) || candidate.imageWidth <= 0 || !finite(candidate.imageHeight) || candidate.imageHeight <= 0) return false;
+  if (!finite(candidate.latencyMs) || candidate.latencyMs < 0 || !Array.isArray(candidate.items) || candidate.items.length > 40) return false;
+  const ids = new Set<string>();
+  const numbers = new Set<number>();
   for (const item of candidate.items) {
     if (!item || typeof item !== 'object') return false;
-    if (typeof item.id !== 'string') return false;
-    if (typeof item.label !== 'string') return false;
-    if (!['recyclable', 'organic', 'hazardous', 'nonrecyclable'].includes(item.category)) {
-      return false;
-    }
-    if (!item.bbox || typeof item.bbox.x !== 'number') return false;
-    if (!Array.isArray(item.polygon)) return false;
-    if (!item.graspPoint || typeof item.graspPoint.x !== 'number') return false;
+    if (![item.id, item.label, item.material, item.actionRequired, item.whyReason].every(value => typeof value === 'string' && value.length > 0)) return false;
+    if (ids.has(item.id) || numbers.has(item.itemNumber) || !Number.isInteger(item.itemNumber) || item.itemNumber < 1) return false;
+    ids.add(item.id);
+    numbers.add(item.itemNumber);
+    if (!Object.prototype.hasOwnProperty.call(BIN_MAPPING, item.category)) return false;
+    if (!unit(item.confidence) || !finite(item.weightGrams) || item.weightGrams < 0 || item.isHazardous !== (item.category === 'hazardous')) return false;
+    if (item.estimatedValueInr !== null && (!item.estimatedValueInr || !finite(item.estimatedValueInr.min) || !finite(item.estimatedValueInr.max) || item.estimatedValueInr.min < 0 || item.estimatedValueInr.max < item.estimatedValueInr.min)) return false;
+    const box = item.bbox;
+    if (!box || ![box.x, box.y, box.width, box.height].every(unit) || box.width <= 0 || box.height <= 0 || box.x + box.width > 1.00001 || box.y + box.height > 1.00001) return false;
+    if (!Array.isArray(item.polygon) || item.polygon.length < 3 || !item.polygon.every(point => Array.isArray(point) && point.length === 2 && point.every(unit))) return false;
+    if (!item.graspPoint || !unit(item.graspPoint.x) || !unit(item.graspPoint.y)) return false;
   }
   return true;
 }
@@ -77,7 +86,7 @@ function generateMockChatReply(query: string, items: Item[]): string {
     const hazItems = items.filter((i) => i.isHazardous || i.category === 'hazardous');
     if (hazItems.length > 0) {
       const names = hazItems.map((i) => `#${i.itemNumber} ${i.label}`).join(', ');
-      return `Flagged ${hazItems.length} hazardous item(s): ${names}.\n\nFollow your local hazardous-waste handling rules. Do not compact, crush or puncture.\n\nMandatory Protocol: Remove manually before mechanical sorting or baling. Transfer immediately to a dedicated red container and take to an authorized drop-off depot.`;
+      return `Flagged ${hazItems.length} potentially hazardous item(s): ${names}.\n\n${hazItems.map(item => `#${item.itemNumber}: ${item.actionRequired}`).join('\n')}\n\nFollow local hazardous-waste handling rules. This is not a certified safety procedure.`;
     }
     return 'No hazardous batteries or reactive materials were flagged in the current top surface scan.';
   }
@@ -150,50 +159,53 @@ export const scanService: ScanService = {
 
   /**
    * Performs vision segmentation and material classification.
-   * If VITE_API_URL is set, POSTs to `${VITE_API_URL}/scan`.
-   * Falls back to mock data if unreachable or payload shape is invalid.
+   * Uploaded photos use /upload, a private S3 POST, then /scan.
+   * Falls back to labelled demo data on failures or invalid payloads.
    */
   async analyse(file: File | null = null, options: AnalyseOptions = {}): Promise<ScanResult> {
     const { sceneType = 'full', delayMs = 2000, forceError = false, demoOnly = false } = options;
 
-    if (API_URL && !forceError && !demoOnly) {
+    if (API_URL && file && !forceError && !demoOnly) {
       try {
-        let response: Response;
-
-        if (file) {
-          const formData = new FormData();
-          formData.append('image', file);
-          response = await fetch(`${API_URL}/scan`, {
-            method: 'POST',
-            body: formData,
-          });
-        } else {
-          response = await fetch(`${API_URL}/scan`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sceneType }),
-          });
-        }
-
-        if (!response.ok) {
-          throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
-        }
-
+        const prepared = await preparePhotoUpload(file);
+        const ticketResponse = await fetch(`${API_URL}/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contentType: prepared.file.type, size: prepared.file.size }),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!ticketResponse.ok) throw new Error('Could not request photo upload.');
+        const ticket: unknown = await ticketResponse.json();
+        if (!ticket || typeof ticket !== 'object') throw new Error('Invalid upload response.');
+        const { url, fields, key } = ticket as { url?: unknown; fields?: unknown; key?: unknown };
+        if (typeof url !== 'string' || !url.startsWith('https://') || typeof key !== 'string' || !fields || typeof fields !== 'object' || !Object.values(fields).every(value => typeof value === 'string')) throw new Error('Invalid S3 upload ticket.');
+        const uploadData = new FormData();
+        Object.entries(fields).forEach(([name, value]) => uploadData.append(name, value as string));
+        uploadData.append('file', prepared.file);
+        const uploadResponse = await fetch(url, { method: 'POST', body: uploadData, signal: AbortSignal.timeout(20000) });
+        if (!uploadResponse.ok) throw new Error('Photo upload failed.');
+        const response = await fetch(`${API_URL}/scan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageKey: key, imageWidth: prepared.width, imageHeight: prepared.height }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!response.ok) throw new Error('Image analysis failed.');
         const data: unknown = await response.json();
-
-        if (isValidScanResult(data)) {
-          currentBackendStatus = 'connected';
-          return data;
-        } else {
-          console.warn('[EcoScan] Backend returned invalid ScanResult shape. Falling back to demo data.', data);
-          currentBackendStatus = 'fallback';
-        }
-      } catch (err) {
-        console.warn('[EcoScan] Failed to reach backend API. Falling back to demo data:', err);
+        if (!isValidScanResult(data) || data.imageKey !== key) throw new Error('Invalid scan response.');
+        currentBackendStatus = 'connected';
+        return { ...data, items: data.items.map(item => ({
+          ...item,
+          cropUrl: undefined,
+          userConfirmed: false,
+          isHazardous: item.isHazardous || item.category === 'hazardous',
+          targetBin: BIN_MAPPING[item.isHazardous ? 'hazardous' : item.category].binName,
+        })) };
+      } catch {
         currentBackendStatus = 'fallback';
       }
     } else {
-      currentBackendStatus = 'mock';
+      currentBackendStatus = file ? 'fallback' : 'mock';
     }
 
     // Demo Mock Fallback Pipeline
@@ -217,48 +229,14 @@ export const scanService: ScanService = {
       imageWidth: 1920,
       imageHeight: 1200,
       modelVersion: HONESTY_STRINGS.modelVersion,
+      source: 'demo',
       latencyMs: Math.floor(38 + Math.random() * 12),
       items,
     };
   },
 
-  /**
-   * Assistant chat method.
-   * If VITE_API_URL is set, POSTs to `${VITE_API_URL}/chat`.
-   * Falls back to mock responses if backend is unreachable.
-   */
+  /** Rule-based replies grounded in the current scan; no model call. */
   async chat(question: string, items: Item[]): Promise<string> {
-    if (API_URL) {
-      try {
-        const response = await fetch(`${API_URL}/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question, items }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        if (typeof data === 'string') {
-          currentBackendStatus = 'connected';
-          return data;
-        }
-        if (data && typeof data.answer === 'string') {
-          currentBackendStatus = 'connected';
-          return data.answer;
-        }
-
-        currentBackendStatus = 'fallback';
-      } catch (err) {
-        console.warn('[EcoScan] Failed to reach backend chat API. Falling back to mock reply:', err);
-        currentBackendStatus = 'fallback';
-      }
-    } else {
-      currentBackendStatus = 'mock';
-    }
-
     return generateMockChatReply(question, items);
   },
 

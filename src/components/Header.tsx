@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           />
           <span className="font-medium tracking-wider">
-            {cameraLive ? 'CAM LIVE' : 'DEMO MODE'}
+            {cameraLive ? 'CAM LIVE' : 'CAM OFF'}
           </span>
         </div>
 

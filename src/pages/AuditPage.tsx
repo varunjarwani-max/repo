@@ -20,10 +20,13 @@ import CompositionRing from '../components/CompositionRing';
 import PickList from '../components/PickList';
 import HazardPanel from '../components/HazardPanel';
 import { useCountUp } from '../hooks/useCountUp';
+import { downloadCsv } from '../lib/csvExport';
 
 export const AuditPage: React.FC = () => {
-  const { scanData, items, setSelectedItemId } = useScanContext();
+  const { scanData, items, setSelectedItemId, backendStatus } = useScanContext();
+  const sourceLabel = backendStatus === 'connected' ? HONESTY_STRINGS.liveTag : HONESTY_STRINGS.demoTag;
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   // IntersectionObserver to trigger animation 2 ("Audit reveal")
@@ -134,7 +137,7 @@ export const AuditPage: React.FC = () => {
     findings.push('Fragile polystyrene foam tray present; risks pulverizing into non-recoverable micro-debris under load.');
   }
   if (hazardousItems.length > 0) {
-    findings.push(`${hazardousItems.length} hazardous battery/cell units present (${hazardousWeight} g); must be extracted manually before mechanical crushing.`);
+    findings.push(`${hazardousItems.length} potentially hazardous items present (${hazardousWeight} g est.); review local hazardous-waste handling guidance before sorting.`);
   }
 
   // Export PDF
@@ -144,67 +147,52 @@ export const AuditPage: React.FC = () => {
 
   // Export CSV
   const handleExportCsv = () => {
-    const lines = [
-      'EcoScan AI — Audit Summary Report',
-      `Site,${scanData?.siteName || APP_INFO.defaultSiteName}`,
-      `Scan ID,${scanData?.scanId || APP_INFO.defaultScanId}`,
-      `Timestamp,${scanData?.timestamp || new Date().toISOString()}`,
-      `Total Items,${totalCount}`,
-      `Total Mass (g),${totalWeightGrams}`,
-      `Recoverable Share By Mass (%),${recoverableWeightShare.toFixed(1)}`,
-      `Est Recoverable Value Min (INR),${minValueInr.toFixed(2)}`,
-      `Est Recoverable Value Max (INR),${maxValueInr.toFixed(2)}`,
-      `Hazardous Items Count,${hazardousItems.length}`,
-      `Contamination Risk,${contaminationRisk}`,
-      '',
-      'ITEM PICK LIST',
-      'Number,Label,Category,Material,Weight(g),TargetBin,EstValueMin,EstValueMax,Hazardous,Action',
-      ...items.map((i) =>
-        [
-          i.itemNumber,
-          `"${i.label}"`,
-          i.category,
-          i.material,
-          i.weightGrams,
-          `"${i.targetBin}"`,
-          i.estimatedValueInr?.min ?? 0,
-          i.estimatedValueInr?.max ?? 0,
-          i.isHazardous ? 'YES' : 'NO',
-          `"${i.actionRequired}"`,
-        ].join(',')
-      ),
-    ];
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ecoscan-audit-${scanData?.scanId || 'report'}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadCsv([
+      ['EcoScan AI — Audit Summary Report'],
+      ['Data source', sourceLabel],
+      ['Limitations', HONESTY_STRINGS.surfaceNotice],
+      ['Disclaimer', HONESTY_STRINGS.auditDisclaimer],
+      ['Site', scanData?.siteName || APP_INFO.defaultSiteName],
+      ['Scan ID', scanData?.scanId || APP_INFO.defaultScanId],
+      ['Timestamp', scanData?.timestamp],
+      ['Total Items', totalCount],
+      ['Estimated Total Mass (g)', totalWeightGrams],
+      ['Estimated Recoverable Share By Mass (%)', recoverableWeightShare.toFixed(1)],
+      ['Estimated Recoverable Value Min (INR)', minValueInr.toFixed(2)],
+      ['Estimated Recoverable Value Max (INR)', maxValueInr.toFixed(2)],
+      ['Hazardous Items Count', hazardousItems.length],
+      ['Indicative Contamination Risk', contaminationRisk],
+      [],
+      ['Number', 'Label', 'Category', 'Material', 'Estimated Weight (g)', 'Target Bin', 'Estimated Value Min (INR)', 'Estimated Value Max (INR)', 'Hazardous', 'Action', 'Model Confidence', 'User Confirmed'],
+      ...items.map(item => [item.itemNumber, item.label, item.category, item.material, item.weightGrams, item.targetBin, item.estimatedValueInr?.min, item.estimatedValueInr?.max, item.isHazardous, item.actionRequired, item.confidence, !!item.userConfirmed]),
+    ], `ecoscan-audit-${scanData?.scanId || 'report'}.csv`);
   };
 
   // Copy Executive Summary
   const handleCopySummary = async () => {
     const summaryText = `EcoScan AI — Contractor Audit Summary
+Data source: ${sourceLabel}
 Site: ${scanData?.siteName || APP_INFO.defaultSiteName} | Scan ID: ${scanData?.scanId || APP_INFO.defaultScanId}
 Timestamp: ${scanData?.timestamp || '2026-10-09 05:28:14 UTC'}
 --------------------------------------------------
 Total Items Detected: ${totalCount}
 Total Estimated Mass: ${totalWeightGrams} g
-Recoverable Share: ${recoverableWeightShare.toFixed(1)}% by weight (${recyclableWeight} g)
+Estimated Recoverable Share: ${recoverableWeightShare.toFixed(1)}% by estimated weight (${recyclableWeight} g est.)
 Estimated Value: ₹${minValueInr.toFixed(1)} - ₹${maxValueInr.toFixed(1)} INR
 Hazardous Units: ${hazardousItems.length} flagged (immediate isolation required)
 Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reject): ${(contaminationRatio * 100).toFixed(1)}%
 --------------------------------------------------
 * ${HONESTY_STRINGS.auditDisclaimer}
-* ${HONESTY_STRINGS.banner}`;
+* ${HONESTY_STRINGS.surfaceNotice}`;
 
-    await navigator.clipboard.writeText(summaryText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    try {
+      await navigator.clipboard.writeText(summaryText);
+      setCopyError('');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopyError('Clipboard is unavailable. Export CSV instead.');
+    }
   };
 
   return (
@@ -270,6 +258,10 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
         </div>
       </section>
 
+      <p className="text-xs text-muted">{sourceLabel} · {HONESTY_STRINGS.confidenceNotice}</p>
+      {copyError && <p role="alert" className="text-xs text-amber-300">{copyError}</p>}
+      {hazardousItems.length > 0 && <HazardPanel hazardousItems={hazardousItems} />}
+
       {/* 2. Row 1: Four Calmer KPI Tiles */}
       <section
         aria-label="Audit summary metrics"
@@ -288,14 +280,14 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
             <span className="text-xs-12 text-muted font-mono">pieces</span>
           </div>
           <div className="mt-0.5 text-[11px] text-muted font-mono">
-            {totalWeightGrams} g total mass
+            {totalWeightGrams} g est. total mass
           </div>
         </div>
 
         {/* KPI 2: Recoverable Share */}
         <div className="bg-surface border border-border rounded-card p-3 sm:p-3.5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs-12 font-medium text-accent">
-            <span>Recoverable share</span>
+            <span>Est. recoverable share</span>
             <Scale className="w-4 h-4 text-accent" />
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
@@ -305,7 +297,7 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
             <span className="text-xs-12 text-muted font-mono">by weight</span>
           </div>
           <div className="mt-0.5 text-[11px] text-muted font-mono">
-            {recyclableWeight} g / {totalWeightGrams} g
+            {recyclableWeight} g / {totalWeightGrams} g (est.)
           </div>
         </div>
 
@@ -344,7 +336,7 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
             <span className="text-xs-12 text-red-400 font-mono">units flagged</span>
           </div>
           <div className="mt-0.5 text-[11px] text-red-300/80 font-mono">
-            {hazardousWeight} g · Manual isolation
+            {hazardousWeight} g est. · Review handling guidance
           </div>
         </div>
       </section>
@@ -412,7 +404,7 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
                   <div className="flex items-center justify-between font-mono text-[11px]">
                     <span className="text-text font-semibold">{mat.name}</span>
                     <span className="text-muted tabular-nums">
-                      {mat.weight} g ({mat.percent.toFixed(1)}%)
+                      {mat.weight} g est. ({mat.percent.toFixed(1)}% est.)
                     </span>
                   </div>
                   <div className="w-full h-1.5 bg-surface rounded-full overflow-hidden">
@@ -428,9 +420,6 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
               ))}
             </div>
           </div>
-
-          {/* B. Hazard Handling Panel */}
-          <HazardPanel hazardousItems={hazardousItems} />
 
           {/* C. Contamination Risk & Quality Flags */}
           <div className="p-4 rounded-panel bg-surface border border-border space-y-3">
@@ -462,12 +451,12 @@ Contamination Risk: ${contaminationRisk} | Non-recoverable share (organic + reje
       </section>
 
       {/* 5. Disclaimer Line and Honesty Banner */}
-      <footer className="p-3 rounded-card bg-surface border border-border text-center text-xs-12 text-muted space-y-0.5 mt-auto">
+      <footer aria-label="Audit limitations" className="p-3 rounded-card bg-surface border border-border text-center text-xs-12 text-muted space-y-0.5 mt-auto">
         <p className="font-medium text-text">
           {HONESTY_STRINGS.auditDisclaimer}
         </p>
         <p className="text-[11px] text-muted">
-          {HONESTY_STRINGS.banner}
+          {HONESTY_STRINGS.surfaceNotice}
         </p>
       </footer>
     </div>

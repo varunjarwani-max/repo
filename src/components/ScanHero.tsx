@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { ArrowUpRight, ArrowRight, ScanLine, Recycle, Leaf, Box, Pause, Play, Cloud, ExternalLink } from 'lucide-react';
+import { useScanContext } from '../context/ScanContext';
+import { HONESTY_STRINGS } from '../lib/constants';
 
 interface ScanHeroProps {
   onScan: () => void;
@@ -8,6 +10,7 @@ interface ScanHeroProps {
 }
 
 export default function ScanHero({ onScan, onUpload, isAnalysing }: ScanHeroProps) {
+  const { backendStatus } = useScanContext();
   const [paused, setPaused] = useState(false);
   const [showArchitecture, setShowArchitecture] = useState(false);
   return (
@@ -41,10 +44,10 @@ export default function ScanHero({ onScan, onUpload, isAnalysing }: ScanHeroProp
         <button className="motion-toggle" onClick={() => setPaused(!paused)} aria-label={paused ? 'Play 3D animation' : 'Pause 3D animation'}>{paused ? <Play size={12} /> : <Pause size={12} />}</button>
       </div>
       <div className="cloud-strip">
-        <span><Cloud size={15} /><strong>Your AWS building block</strong><span className="cloud-divider">/</span> Amazon Bedrock + Nova image understanding <span className="proposed-pill">Recommended · not connected</span></span>
+        <span><Cloud size={15} /><strong>Your AWS building block</strong><span className="cloud-divider">/</span> Amazon Bedrock + Nova image understanding <span className="proposed-pill">{backendStatus === 'connected' ? HONESTY_STRINGS.liveTag : 'Prepared · demo mode'}</span></span>
         <button onClick={() => setShowArchitecture(!showArchitecture)} aria-expanded={showArchitecture}>Explore architecture <ArrowUpRight size={14} /></button>
       </div>
-      {showArchitecture && <div className="architecture-details"><div><strong>Photo → API Gateway → Lambda → Amazon Bedrock</strong><p>Use Amazon Nova Lite or Pro to classify visible waste and return bounding boxes. Validate the JSON in Lambda, keep uploaded images private in S3, and retain a human-review step for hazardous items. Deploy this Vite frontend with AWS Amplify Hosting.</p><p>This is a recommended architecture, not a connected deployment. Current sample scans are demo data; image-based estimates need validation before operational use.</p></div><a href="https://docs.aws.amazon.com/nova/latest/userguide/modalities-image.html" target="_blank" rel="noreferrer">AWS image understanding docs <ExternalLink size={14} /></a></div>}
+      {showArchitecture && <div className="architecture-details"><div><strong>Photo → API Gateway → Lambda → Amazon Bedrock</strong><p>Use Amazon Nova Lite or Pro to classify visible waste and return bounding boxes. Validate the JSON in Lambda, keep uploaded images private in S3, and retain a human-review step for hazardous items. Deploy this Vite frontend with AWS Amplify Hosting.</p><p>AWS deployment code is included. Only a successful uploaded-photo scan shows Live backend; sample scans remain demo data. Image-based estimates need validation before operational use.</p></div><a href="https://docs.aws.amazon.com/nova/latest/userguide/modalities-image.html" target="_blank" rel="noreferrer">AWS image understanding docs <ExternalLink size={14} /></a></div>}
     </section>
   );
 }

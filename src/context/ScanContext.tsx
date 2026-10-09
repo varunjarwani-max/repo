@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { Item, Category, ScanResult, ScanState } from '../types';
 import { scanService, BackendStatus } from '../services/scanService';
 import { generateCropsFromImageFile } from '../lib/cropUtils';
@@ -8,6 +8,7 @@ import { MOCK_SCAN_RESULT } from '../data/mockData';
 interface ScanContextType {
   scanData: ScanResult | null;
   imagePreview: string | null;
+  uploadFallback: boolean;
   items: Item[];
   liveLatencyMs: number;
   scanState: ScanState;
@@ -31,6 +32,8 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [scanData, setScanData] = useState<ScanResult | null>(() => structuredClone(MOCK_SCAN_RESULT));
   const [items, setItems] = useState<Item[]>(() => structuredClone(MOCK_SCAN_RESULT.items));
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadFallback, setUploadFallback] = useState(false);
+  const analysisInFlight = useRef(false);
   const [scanState, setScanState] = useState<ScanState>('results');
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(scanService.getBackendStatus());
   const [liveLatencyMs, setLiveLatencyMs] = useState<number>(APP_INFO.defaultLatencyMs);
@@ -63,6 +66,9 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Run analysis pipeline via scanService
   const runAnalysis = useCallback(async (sceneType: 'core' | 'full' = 'full', file: File | null = null) => {
+    if (analysisInFlight.current) return;
+    analysisInFlight.current = true;
+    setUploadFallback(false);
     setIsAnalysing(true);
     setScanState('analysing');
     setImagePreview(file ? URL.createObjectURL(file) : null);
@@ -88,6 +94,10 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         processedItems = await generateCropsFromImageFile(file, result.items);
       }
 
+      if (file && result.source !== 'live') {
+        setImagePreview(null);
+        setUploadFallback(true);
+      }
       setScanData({ ...result, items: processedItems });
       setScanState('results');
       setItems(processedItems);
@@ -99,6 +109,7 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearTimeout(timer2);
       setBackendStatus(scanService.getBackendStatus());
     } finally {
+      analysisInFlight.current = false;
       setIsAnalysing(false);
     }
   }, []);
@@ -106,8 +117,7 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const activeItemId = hoveredItemId || selectedItemId;
 
   const loadDemoPile = useCallback(() => {
-    runAnalysis('full');
-    setScanState('results');
+    void runAnalysis('full');
   }, [runAnalysis]);
 
   return (
@@ -115,6 +125,7 @@ export const ScanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         scanData,
         imagePreview,
+        uploadFallback,
         items,
         liveLatencyMs,
         scanState,

@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: EcoScan private image uploads and Bedrock vision scan API
+Parameters:
+  AllowedOrigin:
+    Type: String
+    Description: Exact HTTPS Amplify origin, with no trailing slash
+    AllowedPattern: 'https://[a-zA-Z0-9.-]+'
+  BedrockModelId:
+    Type: String
+    Default: amazon.nova-lite-v1:0
+    AllowedValues:
+      - amazon.nova-lite-v1:0
+Resources:
+  PhotoBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: [!Ref AllowedOrigin]
+            AllowedMethods: [POST]
+            AllowedHeaders: ['*']
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireDemoUploads
+            Status: Enabled
+            ExpirationInDays: 1
+  PhotoBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PhotoBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt PhotoBucket.Arn
+              - !Sub '${PhotoBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+  ScanApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref AllowedOrigin]
+        AllowHeaders: [content-type]
+        AllowMethods: [POST, OPTIONS]
+        MaxAge: 300
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 2
+        ThrottlingRateLimit: 1
+  ScanFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .aws-build/lambda.zip
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Timeout: 28
+      MemorySize: 512
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          UPLOAD_BUCKET: !Ref PhotoBucket
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [s3:GetObject, s3:PutObject]
+              Resource:
+                - !Sub '${PhotoBucket.Arn}/uploads/*'
+                - !Sub '${PhotoBucket.Arn}/results/*'
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}'
+      Events:
+        Upload:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ScanApi
+            Path: /upload
+            Method: POST
+        Scan:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ScanApi
+            Path: /scan
+            Method: POST
+Outputs:
+  ApiUrl:
+    Description: Set this as VITE_API_URL in Amplify, then rebuild the frontend
+    Value: !Sub 'https://${ScanApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
+  UploadBucket:
+    Value: !Ref PhotoBucket
+  LambdaName:
+    Value: !Ref ScanFunction

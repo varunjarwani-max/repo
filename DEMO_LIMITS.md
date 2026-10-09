@@ -1,6 +1,6 @@
 # EcoScan AI — Demonstration Boundaries & Disclosure Log (DEMO_LIMITS.md)
 
-This document catalogs every simulated assumption, placeholder dataset, mathematical estimate, and unverified capability across the EcoScan AI front-end application. 
+This document catalogs simulated assumptions and unverified capabilities. The default scene and Sites history remain demo data. The current scan service supports private S3 uploads and Bedrock vision via the included Lambda and SAM template, but no AWS deployment or real model invocation was verified in this phase. Only a validated successful uploaded-photo result enables the Live backend label. `/about` provides the in-app disclosure.
 
 **Purpose for Judges & Evaluators:** To maintain total operational honesty and prevent any simulated demonstration feature from being misrepresented as certified production hardware during live evaluations or pitches.
 
@@ -30,7 +30,7 @@ This document catalogs every simulated assumption, placeholder dataset, mathemat
 
 ### 4. Synthetic Pile Scene (SVG/CSS Only)
 - **Status in Demo:** Pure inline SVG vectors with CSS radial gradients, drop shadows, and procedural geometry.
-- **Limitation:** Built entirely in code with no external photographs, brand logos, or real camera streaming feeds to ensure zero copyright or privacy violations.
+- **Limitation:** The default scene is built in code. Users may upload their own photo; it is analysed only when the AWS backend succeeds. Failed uploads return to the illustrated demo scene, not fabricated detections on the photo. Live masks and grasp points are derived from bounding boxes, not measured contours or calibrated robot targets.
 - **Production Requirement:** Direct RTSP/GigE camera video streams or industrial GigE Vision sensors on real MRF belts.
 
 ---
@@ -60,8 +60,8 @@ This document catalogs every simulated assumption, placeholder dataset, mathemat
 ---
 
 ### 8. Neural Inference Latency & Framerate Telemetry
-- **Status in Demo:** Emulated at 38–50 ms latency and 30 FPS.
-- **Limitation:** Simulated via `setTimeout` in `scanService.ts`.
+- **Status in Demo:** Illustrative 38–50 ms latency; no camera stream or measured FPS.
+- **Limitation:** Demo delays are simulated in `scanService.ts`. A live result reports measured Lambda scan-processing time, excluding browser image preparation, S3 upload and network round trips. Confidence is model-reported, not measured accuracy; no real-waste evaluation dataset or sample size has been published.
 - **Production Requirement:** Actual inference latency depends on edge hardware accelerators (e.g., NVIDIA Jetson Orin, AWS Inferentia) and segmentation resolution.
 
 ---
@@ -69,6 +69,6 @@ This document catalogs every simulated assumption, placeholder dataset, mathemat
 ### Summary Checklist for Pitch Presenters
 - [x] State that all values and weights are software estimates based on 2D surface imagery.
 - [x] Highlight that buried waste requires mechanical turning.
-- [x] Acknowledge that Robot API telemetry is an open schema ready for physical robot calibration.
+- [x] Acknowledge that Robot API output is an application-defined format demonstration, not an industry-standard or tested hardware integration.
 - [x] Clarify that facility trends use illustrative demo history.
 - [x] Emphasize that hazardous item alerts prompt manual isolation per local jurisdictional rules.

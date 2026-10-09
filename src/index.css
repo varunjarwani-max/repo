@@ -200,8 +200,26 @@
     print-color-adjust: exact !important;
   }
 
-  .print-expanded {
+  .print-expanded,
+  footer[aria-label="Audit limitations"] {
     display: block !important;
+  }
+
+  main * {
+    color: #0f172a !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  main section, main footer, main .bg-surface, main .bg-surface-2 {
+    background: #fff !important;
+    border-color: #cbd5e1 !important;
+    break-inside: avoid;
+  }
+
+  main [class*="h-[410px]"] {
+    height: auto !important;
+    min-height: 350px;
   }
 }
 

@@ -2,6 +2,7 @@ import { Item, RobotOutputEnvelope, RobotItemPayload } from '../types';
 import { APP_INFO, HONESTY_STRINGS } from './constants';
 
 export interface ScanEnvelopeMeta {
+  source?: 'live' | 'demo';
   scanId?: string;
   siteId?: string;
   timestamp?: string;
@@ -52,13 +53,15 @@ export function toRobotJson(items: Item[], meta: ScanEnvelopeMeta = {}): RobotOu
       isHazardous: item.isHazardous,
       handlingDirective: item.isHazardous
         ? 'Do not compact, crush or puncture. Follow local hazardous protocols.'
-        : 'Safe for automated vacuum / mechanical pneumatic pick.',
+        : 'No hazard flagged by this scan; this does not establish safe robotic handling.',
     },
     targetBin: item.targetBin,
     recommendedAction: item.actionRequired,
   }));
 
   return {
+    source: meta.source || 'demo',
+    limitations: [HONESTY_STRINGS.surfaceNotice, HONESTY_STRINGS.confidenceNotice, HONESTY_STRINGS.geometryNotice, HONESTY_STRINGS.robotNotice],
     scanId: meta.scanId || APP_INFO.defaultScanId,
     siteId: meta.siteId || APP_INFO.defaultSiteId,
     timestamp: meta.timestamp || new Date().toISOString(),
@@ -98,9 +101,9 @@ export const ROBOT_SCHEMA_DEFINITIONS: SchemaFieldDef[] = [
   { field: 'items[].category', type: 'enum', description: 'Sorting classification: recyclable | organic | hazardous | nonrecyclable.' },
   { field: 'items[].confidence', type: 'number (0..1)', description: 'Model classification confidence score.' },
   { field: 'items[].normalisedBBox', type: 'object {x, y, width, height}', description: 'Normalized bounding box rectangle (0.0 to 1.0 relative coordinates).' },
-  { field: 'items[].maskPolygon', type: 'array of [x, y]', description: 'Normalized boundary polygon points for precise contour picking.' },
+  { field: 'items[].maskPolygon', type: 'array of [x, y]', description: 'Illustrative contour in demo mode; box-derived rectangle in live mode. Not a measured segmentation mask.' },
   { field: 'items[].graspPoint', type: 'object {x, y}', description: 'Calculated centroid grasp crosshair vector for end-effector suction or gripper.' },
-  { field: 'items[].estimatedWeightGrams', type: 'number (integer)', description: 'Estimated item mass in grams for pneumatic pressure modulation.' },
+  { field: 'items[].estimatedWeightGrams', type: 'number (integer)', description: 'Visual estimate of item mass in grams, not suitable for robot calibration.' },
   { field: 'items[].estimatedValueInr', type: 'object {min, max} | null', description: 'Secondary market recoverable value range in INR.' },
   { field: 'items[].hazard.isHazardous', type: 'boolean', description: 'Flag indicating whether item must bypass normal conveyor bins.' },
   { field: 'items[].hazard.handlingDirective', type: 'string', description: 'Worker safety or robot safety directive for hazardous waste handling.' },

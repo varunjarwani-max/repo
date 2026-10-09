@@ -1,0 +1,15 @@
+import { Check, Info, TriangleAlert } from 'lucide-react';
+import { useScanContext } from '../context/ScanContext';
+import { HONESTY_STRINGS } from '../lib/constants';
+
+export default function AboutPage() {
+  const { scanData, backendStatus } = useScanContext();
+  const live = backendStatus === 'connected';
+  return <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 space-y-5">
+    <header className="space-y-2"><p className="text-xs uppercase tracking-widest text-accent">For judges & operators</p><h1 className="text-2xl font-semibold">What&apos;s real, what&apos;s demo</h1><p className="text-sm text-muted">A working interface is not proof of a deployed model or validated material measurement.</p></header>
+    <section className="rounded-panel border border-border bg-surface p-4 space-y-2" aria-label="Current scan source"><h2 className="flex items-center gap-2 font-semibold"><Info size={18} /> Current scan: {live ? HONESTY_STRINGS.liveTag : HONESTY_STRINGS.demoTag}</h2><p className="text-sm text-muted">{live ? 'This photo was uploaded to private S3 storage and the API returned a validated vision result.' : 'The current items, weights, values, confidence scores and scene are illustrative demo data.'}</p><p className="font-mono text-xs break-words">{scanData?.scanId} · {scanData?.modelVersion}</p></section>
+    <section className="rounded-panel border border-border bg-surface p-4 space-y-3"><h2 className="flex items-center gap-2 font-semibold"><Check size={18} /> Working in this app</h2><ul className="list-disc pl-5 space-y-2 text-sm text-muted"><li>Numbered boxes linked to one item list, item details, search and filtering.</li><li>Photo selection, resized upload preparation and photo crops when a live scan succeeds.</li><li>Audit calculations from the current items, category corrections and CSV downloads.</li><li>PDF export opens your browser&apos;s print dialog; choose Save as PDF.</li><li>JSON copy/download is a format demonstration, not a robot integration.</li></ul></section>
+    <section className="rounded-panel border border-amber-500/30 bg-surface p-4 space-y-3"><h2 className="flex items-center gap-2 font-semibold"><TriangleAlert size={18} /> Still simulated or unverified</h2><ul className="list-disc pl-5 space-y-2 text-sm text-muted"><li>Sites history and trend charts use demo data; no DynamoDB history is connected.</li><li>EcoBot uses local, rule-based replies grounded in the scan, not an LLM.</li><li>Weights are visual estimates and values are illustrative ranges, not scales or live market prices.</li><li>{HONESTY_STRINGS.confidenceNotice} No measured accuracy dataset or sample size has been published.</li><li>{HONESTY_STRINGS.geometryNotice}</li><li>AWS source code is included. An Amplify public URL, successful S3 upload and real Bedrock invocation must be verified after deployment; this page does not claim that deployment has happened.</li><li>Scans and corrections stay in memory for this session; reloading starts a fresh demo.</li></ul></section>
+    <p className="text-sm text-muted">{HONESTY_STRINGS.surfaceNotice} {HONESTY_STRINGS.auditDisclaimer}</p>
+  </div>;
+}

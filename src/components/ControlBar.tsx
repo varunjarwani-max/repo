@@ -100,7 +100,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 bottom-full mb-2 w-72 bg-surface-2 border border-border rounded-panel p-3.5 shadow-2xl z-40 space-y-3 font-sans text-xs-12">
+          <div className="absolute left-0 sm:left-auto sm:right-0 bottom-full mb-2 w-72 max-w-[calc(100vw-64px)] bg-surface-2 border border-border rounded-panel p-3.5 shadow-2xl z-40 space-y-3 font-sans text-xs-12">
             <div className="flex items-center justify-between border-b border-border pb-2">
               <span className="font-semibold text-text text-sm-14">Viewfinder Settings</span>
               <span className="font-mono text-[10px] text-muted">OVERLAYS</span>
@@ -147,6 +147,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
               </div>
               <input
                 type="range"
+                aria-label="Confidence threshold"
                 min="0"
                 max="100"
                 value={confidenceThreshold}

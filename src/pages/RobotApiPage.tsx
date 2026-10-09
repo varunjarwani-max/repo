@@ -7,7 +7,7 @@ import JsonViewer from '../components/JsonViewer';
 import PileSceneSvg from '../components/PileSceneSvg';
 
 export const RobotApiPage: React.FC = () => {
-  const { items, scanData } = useScanContext();
+  const { items, scanData, imagePreview, backendStatus } = useScanContext();
 
   const [activeTab, setActiveTab] = useState<'json' | 'schema'>('json');
   const [selectedItemId, setSelectedItemId] = useState<string>(items[0]?.id || 'REC-0001');
@@ -15,6 +15,7 @@ export const RobotApiPage: React.FC = () => {
   // Dynamically generate robot JSON payload using toRobotJson from active ScanContext items
   const robotEnvelope = useMemo(() => {
     return toRobotJson(items, {
+      source: scanData?.source,
       scanId: scanData?.scanId,
       siteId: scanData?.siteId,
       timestamp: scanData?.timestamp,
@@ -29,12 +30,12 @@ export const RobotApiPage: React.FC = () => {
 
   // SVG Scaled coordinates (1000x625 space)
   const svgX = activeItem ? activeItem.bbox.x * 1000 : 0;
-  const svgY = activeItem ? activeItem.bbox.y * 1000 : 0;
+  const svgY = activeItem ? activeItem.bbox.y * 625 : 0;
   const svgW = activeItem ? activeItem.bbox.width * 1000 : 0;
-  const svgH = activeItem ? activeItem.bbox.height * 1000 : 0;
+  const svgH = activeItem ? activeItem.bbox.height * 625 : 0;
 
   const graspX = activeItem ? activeItem.graspPoint.x * 1000 : 0;
-  const graspY = activeItem ? activeItem.graspPoint.y * 1000 : 0;
+  const graspY = activeItem ? activeItem.graspPoint.y * 625 : 0;
 
   const polygonPointsStr = activeItem
     ? activeItem.polygon.map(([px, py]) => `${px * 1000},${py * 625}`).join(' ')
@@ -57,10 +58,10 @@ export const RobotApiPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-emerald-300 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Format: IEEE Robot JSON v1</span>
+            <span>Format: EcoScan JSON v1</span>
           </span>
           <span className="font-mono text-xs text-slate-400 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800">
-            {HONESTY_STRINGS.demoTag}
+            {backendStatus === 'connected' ? HONESTY_STRINGS.liveTag : HONESTY_STRINGS.demoTag}
           </span>
         </div>
       </div>
@@ -70,7 +71,7 @@ export const RobotApiPage: React.FC = () => {
         <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
         <span>
           <strong>Notice: </strong>
-          {HONESTY_STRINGS.robotNotice}
+          {HONESTY_STRINGS.robotNotice} {HONESTY_STRINGS.geometryNotice}
         </span>
       </div>
 
@@ -172,15 +173,15 @@ export const RobotApiPage: React.FC = () => {
           </div>
 
           {/* 16:10 Canvas with Synthetic Pile Scene and Robot Overlay */}
-          <div className="relative w-full aspect-[16/10] bg-slate-950 rounded-xl border border-slate-700/80 overflow-hidden shadow-2xl">
+          <div className="relative w-full aspect-[16/10] bg-slate-950 rounded-xl border border-slate-700/80 overflow-hidden shadow-2xl" style={imagePreview && scanData ? { aspectRatio: scanData.imageWidth / scanData.imageHeight } : undefined}>
             {/* Background Synthetic Pile */}
-            <PileSceneSvg className="opacity-60" />
+            {imagePreview ? <img src={imagePreview} alt="Current uploaded waste photo" className="w-full h-full object-contain" /> : <PileSceneSvg className="opacity-60" />}
 
             {/* SVG Actuation Overlay */}
             {activeItem && (
               <svg
                 viewBox="0 0 1000 625"
-                preserveAspectRatio="xMidYMid slice"
+                preserveAspectRatio="none"
                 className="absolute inset-0 w-full h-full overflow-visible"
               >
                 {/* 1. Mask Polygon */}

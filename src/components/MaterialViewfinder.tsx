@@ -13,6 +13,8 @@ export type AnimPhase = 'idle' | 'sweeping' | 'flying' | 'complete';
 interface ViewfinderProps {
   scanState: ScanState;
   imagePreview?: string | null;
+  imageAspectRatio?: number;
+  liveMode?: boolean;
   items: Item[];
   activeItemId: string | null;
   selectedCategory: Category | 'all';
@@ -33,6 +35,8 @@ interface ViewfinderProps {
 export const Viewfinder: React.FC<ViewfinderProps> = ({
   scanState,
   imagePreview,
+  imageAspectRatio,
+  liveMode = false,
   items,
   activeItemId,
   selectedCategory,
@@ -67,6 +71,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
   return (
     <div
       className="relative w-full aspect-[16/10] bg-bg rounded-panel border border-border overflow-hidden select-none"
+      style={imagePreview && imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
       aria-label="Waste pile computer vision viewfinder canvas"
     >
       {/* 4 Corner Brackets (accent emerald) */}
@@ -81,10 +86,10 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-accent flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            <span>{scanState === 'results' ? 'CAPTURED' : 'LIVE'}</span>
+            <span>{scanState === 'analysing' ? 'ANALYSING' : imagePreview ? 'PHOTO' : 'SAMPLE'}</span>
           </span>
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-text">
-            {APP_INFO.resolution}
+            {imagePreview ? 'UPLOADED PHOTO' : APP_INFO.resolution}
           </span>
           <span className="hidden sm:inline font-mono text-[10px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-muted">
             SURFACE-SEG
@@ -94,7 +99,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
         {/* Top-Right: Telemetry (FPS, Latency) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-muted">
-            DEMO
+            {liveMode ? 'LIVE BACKEND' : 'DEMO'}
           </span>
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-surface/90 border border-border text-accent">
             {liveLatencyMs} ms
@@ -212,13 +217,13 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
               <>
                 <svg
                   viewBox="0 0 1000 625"
-                  preserveAspectRatio="xMidYMid slice"
+                  preserveAspectRatio="none"
                   className="absolute inset-0 w-full h-full z-10 overflow-visible"
                 >
                   {visibleItems.map((item, idx) => {
                     const isActive = activeItemId === item.id;
                     const isDimmed = activeItemId !== null && activeItemId !== item.id;
-                    const isBelowThreshold = item.confidence * 100 < confidenceThreshold;
+                    const isBelowThreshold = !item.userConfirmed && item.confidence * 100 < confidenceThreshold;
                     const isDiscovered = isSweeping ? beamProgress >= item.bbox.y : true;
 
                     return (
