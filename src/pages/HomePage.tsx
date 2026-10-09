@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUpRight, Camera, Check, Globe2, Leaf, Recycle, ScanLine, ShieldCheck, Sparkles } from 'lucide-react';
 import WorldGlobe from '../components/WorldGlobe';
 import EverydayImpact from '../components/EverydayImpact';
+import IndiaWasteStory from '../components/IndiaWasteStory';
 import '../landing.css';
 
 const workflow = [
@@ -34,7 +35,7 @@ export default function HomePage() {
           <p>What if making a better choice was as simple as taking a photo? Meet waste intelligence for your everyday life.</p>
           <div className="landing-actions">
             <Link to="/scan" className="landing-button landing-button-primary">Start scanning <ArrowUpRight size={18} /></Link>
-            <a href="#everyday" className="landing-button landing-button-ghost">Explore the possibilities <ArrowDown size={15} /></a>
+            <a href="#india-story" className="landing-button landing-button-ghost">Explore India&apos;s waste <ArrowDown size={15} /></a>
           </div>
           <div className="landing-hero-note"><Check size={14} /><span>No account needed</span><span className="note-separator">/</span><span>A frame, not a continuous feed</span></div>
         </div>
@@ -43,6 +44,8 @@ export default function HomePage() {
       </section>
 
       <div className="landing-marquee" aria-hidden="true"><div>{[0, 1].map(copy => <span key={copy}><Recycle size={20} /> LESS GUESSWORK <i /> BETTER HABITS <i /> MORE SECOND LIVES <i /> ONE SHARED PLANET <i /></span>)}</div></div>
+
+      <IndiaWasteStory />
 
       <section className="workflow-section landing-section" id="how-it-works" aria-labelledby="workflow-title">
         <div className="section-heading workflow-heading arrival"><div><span className="landing-kicker">01 / FROM CAMERA TO CLARITY</span><h2 id="workflow-title">See beyond <span>the bin.</span></h2></div><p>You don&apos;t need to be an expert.<br />Just curious about what comes next.</p></div>

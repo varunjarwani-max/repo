@@ -111,6 +111,9 @@ export const HONESTY_STRINGS = {
   geometryNotice: 'Boxes are model estimates. Masks and grasp points are box-derived previews, not measured segmentation or tested robot coordinates.',
   modelVersion: 'ecoscan-seg-v0 (demo)',
   visibleTopLayerNotice: 'Top visible layer analysis',
+  indiaDataNotice: 'Published national figures, not live telemetry or EcoScan measurements. Urban municipal waste only; rural and other waste streams are excluded.',
+  landfillPhotoNotice: 'Historical photographs from 2013. These do not show current landfill conditions and are not a live camera feed.',
+  recyclingDataNotice: 'Processed is not the same as recycled. Processing includes material recovery, composting and waste-to-energy. This report does not provide a separate total or percentage for recycling.',
 } as const;
 
 export const APP_INFO = {
