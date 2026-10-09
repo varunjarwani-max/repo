@@ -65,6 +65,33 @@
 .india-photo-card h4 { font-size: 18px; letter-spacing: -.5px; font-weight: 500; margin-top: 12px; line-height: 1.5; }
 .india-photo-card p { color: var(--landing-soft); font-size: 9px; line-height: 1.9; margin-top: 14px; }
 .india-photo-card a { color: var(--landing-ink); text-decoration: underline; text-decoration-color: #ceddcb55; text-underline-offset: 3px; }
+.india-context-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center; margin-top: 32px; }
+.india-context-grid .india-stat-grid { grid-template-columns: 1fr; gap: 12px; margin-top: 0; }
+.india-context-grid .india-stat { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 15px; padding: 20px 24px; }
+.india-context-grid .india-stat strong { grid-column: 2; grid-row: 1 / 3; margin: 0; font-size: 34px; }
+.india-context-grid .india-stat small { grid-column: 1; }
+.india-context-grid .india-stat p { grid-column: 1 / -1; margin-top: 13px; padding-top: 10px; }
+.india-stat { background: #fff; box-shadow: 0 4px 15px #182c2504; }
+.india-stat-featured { background: #edf6eb; border-color: #c1d6bb; }
+.india-processing, .india-photo-card { background: #fff; }
+.india-processing-track { background: #dce5df; }
+.india-recycling-note { background: #f0f6ed; border-color: #a9c8a3; }
+.india-globe-eyebrow { background: #f0f6edf5; }
+.india-globe-label { background: #fffffff5; border-color: #c8dcca; box-shadow: 0 12px 30px #294e3b12; }
+.india-globe-fallback { background: radial-gradient(ellipse, #d7e7ce, #edf4e9); }
+.india-context-grid .world-stage { margin-top: 0; }
+.india-context-grid .world-art { height: 430px; }
+.india-context-grid .world-controls { margin-bottom: 0; }
+@media (max-width: 767px) {
+  .india-context-grid { grid-template-columns: 1fr; gap: 22px; }
+  .india-context-grid .world-art { height: 360px; }
+  .india-context-grid .india-stat { padding: 18px; }
+  .india-context-grid .india-stat strong { font-size: 31px; }
+}
+@media (max-width: 380px) {
+  .india-context-grid .india-stat { display: block; }
+  .india-context-grid .india-stat strong { margin-top: 14px; }
+}
 @media (max-width: 1050px) {
   .india-stat { padding: 22px 18px; }
   .india-stat > span { font-size: 8px; letter-spacing: .3px; gap: 7px; }

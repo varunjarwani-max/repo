@@ -5,7 +5,7 @@ import '../india-story.css';
 
 const formatTonnes = (value: number) => new Intl.NumberFormat('en-IN').format(value);
 
-export default function IndiaWasteStory() {
+export default function IndiaWasteStory({ visual }: { visual?: import('react').ReactNode }) {
   const report = INDIA_WASTE_REPORT;
   const processingShare = report.processedTonnesPerDay / report.generatedTonnesPerDay * 100;
   const unprocessed = report.generatedTonnesPerDay - report.processedTonnesPerDay;
@@ -17,10 +17,13 @@ export default function IndiaWasteStory() {
         <div className="india-report-stamp"><span><CalendarDays size={14} aria-hidden="true" /> REPORTED {report.published.toUpperCase()}</span><p>{report.scope}<br />Published statistics. Not a live counter.</p></div>
       </div>
 
+      <div className="india-context-grid">
+      {visual}
       <div className="india-stat-grid arrival">
         <article className="india-stat"><span><Trash2 size={17} aria-hidden="true" /> WASTE GENERATED</span><strong>{formatTonnes(report.generatedTonnesPerDay)}</strong><small>tonnes per day</small><p>Total reported urban municipal waste.</p></article>
         <article className="india-stat india-stat-featured"><span><Recycle size={17} aria-hidden="true" /> WASTE PROCESSED</span><strong>{formatTonnes(report.processedTonnesPerDay)}</strong><small>tonnes per day · {processingShare.toFixed(2)}% of generated waste</small><p>Includes recovery, composting and energy.</p></article>
         <article className="india-stat"><span><Info size={17} aria-hidden="true" /> PROCESSING GAP</span><strong>{formatTonnes(unprocessed)}</strong><small>tonnes per day · calculated difference</small><p>Not a measured amount sent to landfill.</p></article>
+      </div>
       </div>
 
       <div className="india-processing arrival">

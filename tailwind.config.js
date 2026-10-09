@@ -9,13 +9,13 @@ export default {
     extend: {
       colors: {
         // Redesign design tokens: Linear / Vercel-like palette
-        bg: '#0B0D10',
-        surface: '#12151A',
-        'surface-2': '#181C22',
-        border: 'rgba(255, 255, 255, 0.06)',
-        text: '#E6E8EB',
-        muted: '#8B919A',
-        accent: '#34D399',
+        bg: '#F6F8F7',
+        surface: '#FFFFFF',
+        'surface-2': '#EEF3F0',
+        border: '#DCE5DF',
+        text: '#182C25',
+        muted: '#596C63',
+        accent: '#147D54',
 
         category: {
           recyclable: '#10B981',

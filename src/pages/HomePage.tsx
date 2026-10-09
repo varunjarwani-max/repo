@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUpRight, Camera, Check, Globe2, Leaf, Recycle, ScanLine, ShieldCheck, Sparkles } from 'lucide-react';
 import WorldGlobe from '../components/WorldGlobe';
+import ScanPreview from '../components/ScanPreview';
 import EverydayImpact from '../components/EverydayImpact';
 import IndiaWasteStory from '../components/IndiaWasteStory';
 import '../landing.css';
@@ -30,22 +31,22 @@ export default function HomePage() {
     <div className={`landing-page ${paused ? 'motion-paused' : ''}`} ref={pageRef}>
       <section className="landing-hero" aria-labelledby="home-title">
         <div className="landing-hero-copy">
-          <div className="landing-hero-badge"><span /><span>A LITTLE CLARITY. A WORLD OF POSSIBILITY.</span></div>
-          <h1 id="home-title">Small habits.<br /><span>Planet-sized</span><br />possibilities<span className="hero-period">.</span></h1>
-          <p>What if making a better choice was as simple as taking a photo? Meet waste intelligence for your everyday life.</p>
+          <div className="landing-hero-badge"><span /><span>ENVIRONMENTAL HACKS 2026 / WASTE INTELLIGENCE</span></div>
+          <h1 id="home-title">See waste.<br /><span>Discover</span><br />potential<span className="hero-period">.</span></h1>
+          <p>One photo. A clearer sorting decision. Identify visible materials, flag potential hazards, and turn mixed waste into an actionable plan.</p>
           <div className="landing-actions">
             <Link to="/scan" className="landing-button landing-button-primary">Start scanning <ArrowUpRight size={18} /></Link>
             <a href="#india-story" className="landing-button landing-button-ghost">Explore India&apos;s waste <ArrowDown size={15} /></a>
           </div>
           <div className="landing-hero-note"><Check size={14} /><span>No account needed</span><span className="note-separator">/</span><span>A frame, not a continuous feed</span></div>
         </div>
-        <WorldGlobe paused={paused} onToggleMotion={() => setPaused(value => !value)} />
+        <ScanPreview />
         <div className="landing-hero-bottom"><span><Globe2 size={13} /> BUILT FOR A MORE CIRCULAR WORLD</span><a href="#how-it-works">SCROLL TO DISCOVER <ArrowDown size={13} /></a></div>
       </section>
 
       <div className="landing-marquee" aria-hidden="true"><div>{[0, 1].map(copy => <span key={copy}><Recycle size={20} /> LESS GUESSWORK <i /> BETTER HABITS <i /> MORE SECOND LIVES <i /> ONE SHARED PLANET <i /></span>)}</div></div>
 
-      <IndiaWasteStory />
+      <IndiaWasteStory visual={<WorldGlobe paused={paused} onToggleMotion={() => setPaused(value => !value)} />} />
 
       <section className="workflow-section landing-section" id="how-it-works" aria-labelledby="workflow-title">
         <div className="section-heading workflow-heading arrival"><div><span className="landing-kicker">01 / FROM CAMERA TO CLARITY</span><h2 id="workflow-title">See beyond <span>the bin.</span></h2></div><p>You don&apos;t need to be an expert.<br />Just curious about what comes next.</p></div>
