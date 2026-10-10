@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, CameraOff, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Camera, CameraOff, RefreshCw, TriangleAlert, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Item, Category } from '../types';
 import { CATEGORY_META, CATEGORY_COLORS, APP_INFO } from '../lib/constants';
@@ -33,6 +33,7 @@ interface ViewfinderProps {
   onCategoryFilterChange: (cat: Category | 'all') => void;
   onRetry: () => void;
   onUploadClick: () => void;
+  onLoadDemoPile?: () => void;
 }
 
 export const Viewfinder: React.FC<ViewfinderProps> = ({
@@ -58,6 +59,7 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
   onCategoryFilterChange,
   onRetry,
   onUploadClick,
+  onLoadDemoPile,
 }) => {
   const categories: Category[] = ['recyclable', 'organic', 'hazardous', 'nonrecyclable'];
 
@@ -161,21 +163,33 @@ export const Viewfinder: React.FC<ViewfinderProps> = ({
         {/* 3. STATE: ERROR */}
         {scanState === 'error' && (
           <div className="p-6 max-w-md bg-surface/95 border border-red-500/30 rounded-panel text-center z-10 shadow-2xl">
-            <div className="w-12 h-12 mx-auto rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mb-3">
+            <div className="w-12 h-12 mx-auto rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-3">
               <TriangleAlert className="w-6 h-6" />
             </div>
             <h3 className="text-sm-14 font-semibold text-text">Analysis Failed</h3>
-            <p className="text-xs-12 text-muted mt-1.5">
+            <p className="text-xs-12 text-muted mt-1.5 leading-relaxed">
               {analysisError || 'Could not analyse this frame. Retry the camera capture or upload a photo.'}
             </p>
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-4 px-4 py-1.5 text-xs-12 font-semibold rounded-card bg-red-600 hover:bg-red-500 text-white flex items-center gap-1.5 mx-auto transition-colors cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Retry Analysis</span>
-            </button>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={onRetry}
+                className="px-4 py-2 text-xs-12 font-semibold rounded-card bg-red-600 hover:bg-red-500 !text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-white" />
+                <span className="text-white">Retry Analysis</span>
+              </button>
+              {onLoadDemoPile && (
+                <button
+                  type="button"
+                  onClick={onLoadDemoPile}
+                  className="px-3.5 py-2 text-xs-12 font-medium rounded-card bg-surface-2 hover:bg-slate-200 text-text border border-border flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-muted" />
+                  <span>Load demo pile</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
 
