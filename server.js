@@ -1,5 +1,5 @@
 // EcoScan AWS Backend Server (Node.js / Express)
-// Serves the EcoScan web application and securely proxies Gemini 1.5 Flash Vision API calls.
+// Serves the EcoScan web application and securely proxies Gemini 3.8 Flash Vision API calls.
 // The GEMINI_API_KEY is stored only in the server environment (or .env), NEVER in public client code.
 
 import express from 'express';
@@ -82,7 +82,7 @@ app.get('/api/health', (req, res) => {
 /**
  * POST /api/classify
  * Accepts { imageBase64: string } from the camera or file upload
- * Calls Google Gemini 1.5 Flash Vision securely from the server
+ * Calls Google Gemini 3.8 Flash Vision securely from the server
  */
 app.post('/api/classify', async (req, res) => {
   try {
@@ -201,7 +201,8 @@ Output format structure:
     usedKeyIndex = activeKeyIndex;
 
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`;
+      const modelId = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${currentKey}`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -308,7 +309,8 @@ ${sceneContext}`;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const currentKey = getActiveKey();
         try {
-          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`;
+          const modelId = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${currentKey}`;
           const contents = [
             {
               parts: [

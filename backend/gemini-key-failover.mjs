@@ -12,6 +12,16 @@ function cooldownDuration(error, now) {
   return Number.isFinite(duration) ? Math.max(1000, duration) : 60_000;
 }
 
+export function getApiCallError(error) {
+  if (APICallError.isInstance(error)) return error;
+  if (error && error.lastError && APICallError.isInstance(error.lastError)) return error.lastError;
+  if (error && Array.isArray(error.errors)) {
+    const found = error.errors.find(e => APICallError.isInstance(e));
+    if (found) return found;
+  }
+  return null;
+}
+
 export function createGeminiKeyFailover({ getKeys = configuredGeminiKeys, now = Date.now } = {}) {
   const cooldowns = new Map();
   return async function withGeminiKey(operation) {
@@ -25,9 +35,10 @@ export function createGeminiKeyFailover({ getKeys = configuredGeminiKeys, now = 
         cooldowns.delete(key);
         return result;
       } catch (error) {
-        if (!APICallError.isInstance(error) || error.statusCode !== 429) throw error;
-        quotaError = error;
-        cooldowns.set(key, now() + cooldownDuration(error, now()));
+        const apiError = getApiCallError(error);
+        if (!apiError || apiError.statusCode !== 429) throw error;
+        quotaError = apiError;
+        cooldowns.set(key, now() + cooldownDuration(apiError, now()));
       }
     }
     if (quotaError) throw quotaError;

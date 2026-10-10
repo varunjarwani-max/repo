@@ -1,7 +1,7 @@
 import { generateText, APICallError } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { ApiError } from './key-store.mjs';
-import { configuredGeminiKeys, withGeminiKey } from './gemini-key-failover.mjs';
+import { configuredGeminiKeys, withGeminiKey, getApiCallError } from './gemini-key-failover.mjs';
 
 const routing = {
   Recyclable: { bin: 'Blue recycling bin', directive: 'Empty, rinse, and keep dry.' },
@@ -64,7 +64,8 @@ export async function classifyImage(image) {
     return parseWasteResponse(text);
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    if (APICallError.isInstance(error) && error.statusCode === 429) throw new ApiError(429, 'Vision provider quota exceeded. Retry later.');
+    const apiError = getApiCallError(error);
+    if (apiError && apiError.statusCode === 429) throw new ApiError(429, 'Vision provider quota exceeded. Retry later.');
     if (error.name === 'TimeoutError' || error.name === 'AbortError') throw new ApiError(504, 'Vision request timed out. Please retry.');
     throw new ApiError(502, 'Vision provider is unavailable or rejected the request. No sample detections were substituted.');
   }
