@@ -3,9 +3,11 @@
 // The GEMINI_API_KEY is stored only in the server environment (or .env), NEVER in public client code.
 
 import express from 'express';
-import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'node:fs';
+import developerApi from './backend/developer-api.mjs';
+import analyse from './api/analyse.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,12 +51,20 @@ function rotateToNextKey() {
   return activeKeyIndex;
 }
 
-// Middleware: allow JSON payload up to 15MB for base64 images
-app.use(cors());
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000');
+  next();
+});
+app.use(developerApi);
 app.use(express.json({ limit: '15mb' }));
+app.post('/api/analyse', (req, res) => void analyse(req, res));
 
-// Serve static frontend files (index.html, assets, public)
-app.use(express.static(__dirname));
+// Only built public assets may be served; source and data/api_keys.json must never be exposed.
+const frontendDirectory = path.join(__dirname, 'dist');
+app.use(express.static(frontendDirectory));
 
 /**
  * Health check endpoint for AWS Load Balancer (ALB) / ECS / Elastic Beanstalk
@@ -354,8 +364,12 @@ ${sceneContext}`;
 });
 
 // Fallback to index.html for single-page app routes
+app.use('/api', (req, res) => res.status(404).json({ error: 'API endpoint not found.' }));
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  if (req.path.startsWith('/data') || req.path.startsWith('/backend') || req.path === '/server.js') return res.sendStatus(404);
+  const index = path.join(frontendDirectory, 'index.html');
+  if (!existsSync(index)) return res.status(503).send('Build the frontend with npm run build, or use npm run dev for local development.');
+  res.sendFile(index);
 });
 
 app.listen(PORT, () => {

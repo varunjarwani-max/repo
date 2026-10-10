@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Camera, FileText, MapPin, Globe2, Bot } from 'lucide-react';
+import { Camera, FileText, MapPin, Globe2, Bot, Code2 } from 'lucide-react';
 
 interface MobileTabBarProps {
   onToggleEcoBot?: () => void;
@@ -16,6 +16,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     { to: '/scan', label: 'Scan', icon: Camera },
     { to: '/audit', label: 'Audit', icon: FileText },
     { to: '/sites', label: 'Sites', icon: MapPin },
+    { to: '/developers', label: 'API Hub', icon: Code2 },
   ];
 
   return (

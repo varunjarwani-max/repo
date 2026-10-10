@@ -1,4 +1,6 @@
 node_modules
+data/api_keys.json
+data/api_keys.json.*.tmp
 .DS_Store
 dist
 dist-ssr

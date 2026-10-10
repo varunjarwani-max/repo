@@ -91,7 +91,7 @@ export const BIN_MAPPING: Record<Category, BinMeta> = {
   nonrecyclable: {
     colorHex: '#0F172A',
     binName: 'Black reject bin',
-    swatchClass: 'bg-slate-900 border border-slate-700',
+    swatchClass: 'bg-[#0F172A] border border-slate-700',
     directive: 'Black reject bin (Standard non-recyclable municipal disposal)',
   },
 };

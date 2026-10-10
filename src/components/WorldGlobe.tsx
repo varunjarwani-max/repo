@@ -49,9 +49,9 @@ export default function WorldGlobe({ paused, onToggleMotion }: WorldGlobeProps) 
     try {
       globe = createGlobe(canvas, {
         width: size, height: size, devicePixelRatio: Math.min(window.devicePixelRatio, 2),
-        ...viewRef.current, dark: 1, diffuse: 1.8, mapSamples: 24000,
-        mapBrightness: 5, mapBaseBrightness: 0.04,
-        baseColor: [0.16, 0.23, 0.18], markerColor: [0.72, 0.93, 0.57], glowColor: [0.14, 0.23, 0.16],
+        ...viewRef.current, dark: 0, diffuse: 1.2, mapSamples: 24000,
+        mapBrightness: 3, mapBaseBrightness: 0.08,
+        baseColor: [0.78, 0.87, 0.75], markerColor: [0.08, 0.49, 0.33], glowColor: [0.94, 0.97, 0.93],
         markers: [{ location: GHAZIPUR_LOCATION, size: 0.055 }],
       });
     } catch {
