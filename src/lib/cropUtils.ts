@@ -7,8 +7,8 @@ import { Item } from '../types';
  */
 export async function compressImageToCanvas(
   file: File,
-  maxDimension = 1920,
-  quality = 0.8
+  maxDimension = 1280,
+  quality = 0.75
 ): Promise<{ file: File; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(file);
   try {

@@ -42,7 +42,7 @@ function isValidScanResult(data: unknown): data is ScanResult {
   if (candidate.source !== 'live' || typeof candidate.imageKey !== 'string' || !candidate.imageKey) return false;
   if (![candidate.scanId, candidate.siteId, candidate.siteName, candidate.timestamp, candidate.modelVersion].every(value => typeof value === 'string' && value.length > 0)) return false;
   if (!finite(candidate.imageWidth) || candidate.imageWidth <= 0 || !finite(candidate.imageHeight) || candidate.imageHeight <= 0) return false;
-  if (!finite(candidate.latencyMs) || candidate.latencyMs < 0 || !Array.isArray(candidate.items) || candidate.items.length > 40) return false;
+  if (!finite(candidate.latencyMs) || candidate.latencyMs < 0 || !Array.isArray(candidate.items) || candidate.items.length > 500) return false;
   const ids = new Set<string>();
   const numbers = new Set<number>();
   for (const item of candidate.items) {

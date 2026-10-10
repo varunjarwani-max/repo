@@ -63,7 +63,7 @@ export function useCamera(onActiveChange: (active: boolean) => void) {
       setError(name === 'NotAllowedError'
         ? 'Camera permission was denied. Allow camera access in browser settings, or upload a photo. The preview iframe may restrict camera access; open the deployed app directly if needed.'
         : name === 'NotFoundError' ? 'No camera was found. Connect a camera or upload a photo.'
-        : 'The camera is unavailable or in use. Close other camera apps and retry, or upload a photo.');
+          : 'The camera is unavailable or in use. Close other camera apps and retry, or upload a photo.');
     } finally {
       opening.current = false;
       if (mounted.current) setIsOpening(false);
@@ -76,7 +76,7 @@ export function useCamera(onActiveChange: (active: boolean) => void) {
       setError('Wait for the camera preview to appear before capturing.');
       return null;
     }
-    const scale = Math.min(1, 1568 / Math.max(video.videoWidth, video.videoHeight));
+    const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(video.videoWidth * scale);
     canvas.height = Math.round(video.videoHeight * scale);

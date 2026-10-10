@@ -1,0 +1,20 @@
+﻿const key = process.env.GEMINI_API_KEY?.trim();
+const model = (process.env.GEMINI_MODEL || '').trim();
+const base = 'https://generativelanguage.googleapis.com/v1beta';
+console.log('1) Key loaded:', key ? `yes (${key.slice(0, 6)}..., length ${key.length})` : 'NO -> .env missing or GEMINI_API_KEY empty');
+console.log('2) GEMINI_MODEL:', model || '(not set)');
+if (!key) process.exit(1);
+const list = await fetch(`${base}/models?pageSize=200&key=${key}`);
+const listBody = await list.json();
+console.log('\n3) ListModels status:', list.status);
+if (!list.ok) { console.log('   Google says:', JSON.stringify(listBody.error || listBody)); console.log('   -> The KEY is the problem.'); process.exit(1); }
+const usable = listBody.models.filter(m => m.supportedGenerationMethods?.includes('generateContent')).map(m => m.name.replace('models/', '')).filter(n => /flash|pro/.test(n));
+console.log('   Models your key can use:\n   ' + usable.join('\n   '));
+if (model && !usable.includes(model)) console.log(`\n   -> "${model}" is NOT in that list. This is your bug.`);
+const test = model && usable.includes(model) ? model : usable.find(n => /flash/.test(n));
+console.log(`\n4) Test call with "${test}" ...`);
+const t = performance.now();
+const r = await fetch(`${base}/models/${test}:generateContent?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: 'Reply with the single word: ok' }] }] }) });
+const body = await r.json();
+console.log('   HTTP status:', r.status, `(${Math.round(performance.now() - t)} ms)`);
+console.log('   Response:', JSON.stringify(r.ok ? body.candidates?.[0]?.content?.parts : body.error));
