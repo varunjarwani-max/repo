@@ -174,10 +174,11 @@ export const scanService: ScanService = {
           reader.onerror = () => reject(new Error('Could not read this photo.'));
           reader.readAsDataURL(prepared.file);
         });
+        const body: Record<string, unknown> = { image, imageWidth: prepared.width, imageHeight: prepared.height };
         const response = await fetch('/api/analyse', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image, imageWidth: prepared.width, imageHeight: prepared.height }),
+          body: JSON.stringify(body),
           signal: AbortSignal.timeout(55000),
         });
         const data: unknown = await response.json();

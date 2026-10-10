@@ -102,94 +102,46 @@ app.post('/api/classify', async (req, res) => {
     });
   }
 
-  const prompt = `You are an expert waste classification and computer vision engine. Analyze the entire input image to detect waste items, piles, and litter.
+  const cleanBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '').replace(/\s+/g, '');
 
-Strict output requirements:
-- Do not output JSON, markdown code fences, conversational greetings, or closing remarks.
-- Provide output strictly divided into two sections using exact headers: "### BACKEND_DATA" and "### FRONTEND_REPORT".
-- Normalize all bounding box coordinates to integers between 0 and 1000: [ymin, xmin, ymax, xmax] relative to image height and width.
-
-Allowed Categories:
-- Recyclable (Plastics, Metals, Paper, Cardboard, Clean Glass)
-- Organic (Food scraps, Yard waste, Biodegradable)
-- Hazardous (Batteries, E-waste, Chemicals, Medical)
-- Non-Recyclable (Mixed residual waste, Multi-layer packaging, Debris)
-
-Output format structure:
-
-### BACKEND_DATA
-[item_name]|[category]|[ymin]|[xmin]|[ymax]|[xmax]
-
-(Rules for BACKEND_DATA:
-1. One detected object per line.
-2. Separate exactly 6 fields using a single pipe character (|).
-3. Do not include column header rows or extra spaces around the pipes.
-4. Ensure ymin < ymax and xmin < xmax.)
-
-### FRONTEND_REPORT
-[Provide a concise 3-4 sentence operational summary:
-- Primary waste composition and notable detected materials.
-- Contamination or hazard level (Low/Medium/High) with clear rationale.
-- Actionable site status: Recommended bin routing or required remediation priority.]`;
+  const CLASSIFY_SCHEMA = {
+    type: 'object',
+    properties: {
+      items: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string' },
+            category: { type: 'string', enum: ['Recyclable', 'Organic', 'Hazardous', 'Non-Recyclable'] },
+            box_2d: { type: 'array', items: { type: 'integer' }, minItems: 4, maxItems: 4 },
+          },
+          required: ['label', 'category', 'box_2d'],
+        },
+      },
+      operationalSummary: { type: 'string' },
+    },
+    required: ['items'],
+  };
 
   const payload = {
+    system_instruction: {
+      parts: [{ text: 'Detect all visible waste items. Categorize as Recyclable, Organic, Hazardous, Non-Recyclable. Bounding boxes [ymin, xmin, ymax, xmax] normalized 0-1000.' }]
+    },
     contents: [
       {
         parts: [
-          { text: prompt },
-          {
-            inline_data: {
-              mime_type: 'image/jpeg',
-              data: imageBase64
-            }
-          }
+          { inline_data: { mime_type: 'image/jpeg', data: cleanBase64 } }
         ]
       }
     ],
     generationConfig: {
       temperature: 0.1,
-      topP: 0.95,
-      maxOutputTokens: 2048
+      maxOutputTokens: 1024,
+      responseMimeType: 'application/json',
+      responseSchema: CLASSIFY_SCHEMA,
     }
   };
-
-  /**
-   * Parses the pipe-delimited BACKEND_DATA and FRONTEND_REPORT from Gemini's text response.
-   * Returns { detectedItems: Array, frontendReport: string }
-   */
-  function parseWasteDetectionResponse(rawText) {
-    const backendMatch = rawText.match(/###\s*BACKEND_DATA\s*\n([\s\S]*?)(?=###\s*FRONTEND_REPORT|$)/i);
-    const frontendMatch = rawText.match(/###\s*FRONTEND_REPORT\s*\n([\s\S]*?)$/i);
-
-    const detectedItems = [];
-    if (backendMatch && backendMatch[1]) {
-      const lines = backendMatch[1].trim().split('\n');
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        const parts = trimmed.split('|');
-        if (parts.length !== 6) continue;
-        const [item_name, category, yminStr, xminStr, ymaxStr, xmaxStr] = parts;
-        const ymin = parseInt(yminStr, 10);
-        const xmin = parseInt(xminStr, 10);
-        const ymax = parseInt(ymaxStr, 10);
-        const xmax = parseInt(xmaxStr, 10);
-        if (isNaN(ymin) || isNaN(xmin) || isNaN(ymax) || isNaN(xmax)) continue;
-        if (ymin >= ymax || xmin >= xmax) continue;
-        detectedItems.push({
-          item_name: item_name.trim(),
-          category: category.trim(),
-          bbox: { ymin, xmin, ymax, xmax }
-        });
-      }
-    }
-
-    const frontendReport = frontendMatch && frontendMatch[1]
-      ? frontendMatch[1].trim()
-      : 'Scene analyzed. No additional report available.';
-
-    return { detectedItems, frontendReport };
-  }
 
   // Try each key in succession until one succeeds or all configured keys fail
   const maxAttempts = keys.length;
@@ -201,7 +153,7 @@ Output format structure:
     usedKeyIndex = activeKeyIndex;
 
     try {
-      const modelId = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+      const modelId = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${currentKey}`;
 
       const response = await fetch(endpoint, {
@@ -234,24 +186,37 @@ Output format structure:
       }
 
       const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) {
         throw new Error('No content returned by Gemini vision model');
       }
 
-      const { detectedItems, frontendReport } = parseWasteDetectionResponse(text);
+      const parsed = JSON.parse(rawText);
+      const detectedItems = (parsed.items || []).map((item, idx) => ({
+        id: idx + 1,
+        item_name: item.label,
+        category: item.category,
+        bbox: {
+          ymin: item.box_2d[0],
+          xmin: item.box_2d[1],
+          ymax: item.box_2d[2],
+          xmax: item.box_2d[3]
+        }
+      }));
+
       const totalMs = Date.now() - startTime;
 
       return res.json({
         success: true,
         source: 'gemini_vision_ai',
+        model: 'gemini-3.7-flash',
         activeKeyIndex: (usedKeyIndex % keys.length) + 1,
         totalKeys: keys.length,
         inference_latency_ms: totalMs,
         result: {
           detectedItems,
-          frontendReport,
-          raw: text
+          frontendReport: parsed.operationalSummary || `${detectedItems.length} waste item(s) detected.`,
+          raw: rawText
         }
       });
 
@@ -309,7 +274,7 @@ ${sceneContext}`;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const currentKey = getActiveKey();
         try {
-          const modelId = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+          const modelId = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
           const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${currentKey}`;
           const contents = [
             {

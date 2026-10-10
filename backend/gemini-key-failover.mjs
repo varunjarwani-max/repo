@@ -24,27 +24,33 @@ export function getApiCallError(error) {
 
 export function createGeminiKeyFailover({ getKeys = configuredGeminiKeys, now = Date.now } = {}) {
   const cooldowns = new Map();
-  return async function withGeminiKey(operation) {
+  return async function withGeminiKey(operation, context = '') {
     const keys = [...new Set(getKeys())];
-    for (const key of cooldowns.keys()) if (!keys.includes(key)) cooldowns.delete(key);
+    for (const k of cooldowns.keys()) {
+      const baseKey = k.includes(':') ? k.split(':')[0] : k;
+      if (!keys.includes(baseKey)) cooldowns.delete(k);
+    }
     let quotaError;
     for (const key of keys) {
-      if ((cooldowns.get(key) || 0) > now()) continue;
+      const cdKey = context ? `${key}:${context}` : key;
+      if ((cooldowns.get(cdKey) || 0) > now()) continue;
       try {
         const result = await operation(key);
-        cooldowns.delete(key);
+        cooldowns.delete(cdKey);
         return result;
       } catch (error) {
         const apiError = getApiCallError(error);
         if (!apiError || apiError.statusCode !== 429) throw error;
         quotaError = apiError;
-        cooldowns.set(key, now() + cooldownDuration(apiError, now()));
+        cooldowns.set(cdKey, now() + cooldownDuration(apiError, now()));
       }
     }
     if (quotaError) throw quotaError;
     if (!keys.length) throw new Error('Gemini API keys are not configured.');
     throw new APICallError({
-      message: 'All configured Gemini keys are temporarily quota-limited.',
+      message: context
+        ? `All configured Gemini keys are temporarily quota-limited for ${context}.`
+        : 'All configured Gemini keys are temporarily quota-limited.',
       url: 'https://generativelanguage.googleapis.com', requestBodyValues: {},
       statusCode: 429, isRetryable: false,
     });

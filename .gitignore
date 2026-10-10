@@ -13,4 +13,5 @@ __pycache__/
 .env
 .env.*
 !.env.example
+vite.config.ts.timestamp-*
 

@@ -96,6 +96,8 @@ export const BIN_MAPPING: Record<Category, BinMeta> = {
   },
 };
 
+export const GEMINI_MODEL = 'gemini-3.7-flash';
+
 export const HONESTY_STRINGS = {
   banner: 'Visible surface only - items beneath the top layer are not counted. Weights and values are estimates. Demo data.',
   auditDisclaimer: 'Estimates only - not a certified weighbridge or audit record.',

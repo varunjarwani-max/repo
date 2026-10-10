@@ -1,33 +1,54 @@
 import { Item } from '../types';
 
-export async function preparePhotoUpload(file: File): Promise<{ file: File; width: number; height: number }> {
+/**
+ * Client-side image compression and format normalization using HTML <canvas>.
+ * Resizes any image (PNG, HEIC, WebP, JPG) to a maximum dimension of 1920px (preserving aspect ratio)
+ * and exports as compressed JPEG at quality 0.8 (~1-2 MB), easily bypassing the 10MB limit.
+ */
+export async function compressImageToCanvas(
+  file: File,
+  maxDimension = 1920,
+  quality = 0.8
+): Promise<{ file: File; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(file);
   try {
     const image = new Image();
     image.crossOrigin = 'anonymous';
     image.src = objectUrl;
     await image.decode();
-    const scale = Math.min(1, 1568 / Math.max(image.naturalWidth, image.naturalHeight));
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+    const origW = image.naturalWidth || image.width;
+    const origH = image.naturalHeight || image.height;
+    const scale = Math.min(1, maxDimension / Math.max(origW, origH));
+    const width = Math.max(1, Math.round(origW * scale));
+    const height = Math.max(1, Math.round(origH * scale));
+
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d');
-    if (!context) throw new Error('Image processing is unavailable.');
+    if (!context) throw new Error('Image canvas processing is unavailable.');
+
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, width, height);
     context.drawImage(image, 0, 0, width, height);
-    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
-      value => value ? resolve(value) : reject(new Error('Could not prepare this image.')),
-      'image/jpeg', 0.86,
-    ));
-    if (blob.size > 3_500_000) throw new Error('Prepared photo exceeds the model upload limit.');
-    return { file: new File([blob], 'waste-photo.jpg', { type: 'image/jpeg' }), width, height };
+
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Could not compress this image.'))),
+        'image/jpeg',
+        quality
+      )
+    );
+
+    const compressedFile = new File([blob], 'compressed-waste.jpg', { type: 'image/jpeg' });
+    return { file: compressedFile, width, height };
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
 }
+
+export const preparePhotoUpload = compressImageToCanvas;
 
 /**
  * Crops an uploaded image file client-side for each item using its normalized bbox + 8% padding.

@@ -3,13 +3,14 @@ import { Camera, Sparkles, TriangleAlert, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Category } from '../types';
 import { useScanContext } from '../context/ScanContext';
-import { HONESTY_STRINGS } from '../lib/constants';
+import { HONESTY_STRINGS, GEMINI_MODEL } from '../lib/constants';
 import Viewfinder, { ScanState } from '../components/MaterialViewfinder';
 import ControlBar from '../components/ControlBar';
 import ScanResultsList from '../components/ScanResultsList';
 import ScanHero from '../components/ScanHero';
 import ScanOverview from '../components/ScanOverview';
 import { useCamera } from '../hooks/useCamera';
+import { compressImageToCanvas } from '../lib/cropUtils';
 
 export const ScanPage: React.FC = () => {
   const {
@@ -71,18 +72,23 @@ export const ScanPage: React.FC = () => {
     void runAnalysis('full');
   };
   const handleUploadPhoto = () => fileInputRef.current?.click();
-  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
-      setUploadError('Choose a JPG, PNG, or WebP image smaller than 10 MB.');
-      return;
-    }
+
     camera.stop();
-    lastFrame.current = file;
     setUploadError('');
-    void runAnalysis('full', file);
+
+    try {
+      // Client-side canvas compression & format normalization:
+      // Resizes to max 1920px, quality 0.8, converts PNG/HEIC/WebP to JPEG, guarantees ~1-2MB bypassing 10MB limit
+      const compressed = await compressImageToCanvas(file);
+      lastFrame.current = compressed.file;
+      void runAnalysis('full', compressed.file);
+    } catch {
+      setUploadError('Could not process this photo. Please select a valid image file.');
+    }
   };
 
   // Selection toggle (pins item)
@@ -126,7 +132,7 @@ export const ScanPage: React.FC = () => {
 
   return (
     <div className="scan-workspace flex-1 w-full mx-auto flex flex-col relative">
-      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileSelected} aria-label="Upload waste photo" className="sr-only" disabled={isAnalysing} />
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelected} aria-label="Upload waste photo" className="sr-only" disabled={isAnalysing} />
       <ScanHero onScan={() => void handleCameraScan()} onUpload={handleUploadPhoto} isAnalysing={isAnalysing} cameraActive={Boolean(camera.stream)} cameraOpening={camera.isOpening} />
       <p className="text-xs text-muted">Camera video stays in your browser. Capture &amp; analyse sends one frame to Gemini; results refer to that frozen frame. No physical robot is controlled.</p>
       {camera.error && <p role="alert" className="upload-notice">{camera.error}</p>}
@@ -184,8 +190,8 @@ export const ScanPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-slate-300 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-emerald-400" />
-            <span>Model: {scanData?.modelVersion || 'Gemini · awaiting scan'}</span>
+            <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
+            <span>Model: {GEMINI_MODEL}</span>
           </span>
           {backendStatus === 'fallback' ? (
             <span className="font-mono text-xs text-amber-300 px-2.5 py-1 rounded-full bg-amber-950/60 border border-amber-500/40 flex items-center gap-1.5 shadow-sm">
