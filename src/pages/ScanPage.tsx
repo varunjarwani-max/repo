@@ -234,6 +234,7 @@ export const ScanPage: React.FC = () => {
             onCategoryFilterChange={setSelectedCategory}
             onRetry={handleRetry}
             onUploadClick={handleUploadPhoto}
+            onLoadDemoPile={handleLoadDemoPile}
           />
 
           <ControlBar
